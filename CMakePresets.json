@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "configurePresets": [
+    {
+      "name": "debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/cmake-build-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    },
+    {
+      "name": "release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/cmake-build-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    }
+  ]
+}
