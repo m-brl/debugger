@@ -2,7 +2,7 @@
   "version": 2,
   "configurePresets": [
     {
-      "name": "debug",
+      "name": "DefaultDebug",
       "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/cmake-build-debug",
       "cacheVariables": {
@@ -11,8 +11,8 @@
       }
     },
     {
-      "name": "release",
-      "generator": "Ninja",
+      "name": "DefaultRelease",
+      "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/cmake-build-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
