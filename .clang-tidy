@@ -1,11 +1,15 @@
 Checks: "bugprone-*,cppcoreguidelines-*,clang-analyzer-*,readability-*,misc-*,modernize-*,
   -cppcoreguidelines-special-member-functions,
-  -modernize-use-trailing-return-type,
-  -readability-identifier-length,
+  -cppcoreguidelines-pro-type-vararg,
   -cppcoreguidelines-pro-type-union-access,
   -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic
+
+  -readability-identifier-length,
   -readability-magic-numbers,
-  -bugprone-easily-swappable-parameters,
   -readability-braces-around-statements,
   -readability-convert-member-functions-to-static
+
+  -modernize-use-trailing-return-type,
+  -bugprone-easily-swappable-parameters,
 "
