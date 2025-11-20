@@ -1,4 +1,4 @@
 #!/bin/bash
 
-cmake --preset=debug .
+cmake --preset=DefaultDebug .
 cmake --build cmake-build-debug

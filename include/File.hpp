@@ -1,48 +1,74 @@
 #pragma once
 
-#include "utils.hpp"
+#include <elf.h>
 #include <exception>
 #include <filesystem>
+#include <libdwarf.h>
 #include <vector>
-#include <memory>
 #include <sys/stat.h>
-#include <functional>
 
-#include "Section.hpp"
+template <typename T>
+struct Tree {
+    T data;
+    std::vector<Tree<T>> children;
+};
 
 namespace ELF {
-class File {
-public:
-  class FileNotFound : public std::exception {
-  private:
-    std::string _message;
+    union Elf_Ehdr {
+        char *buffer;
+        Elf64_Ehdr *elf64_ehdr;
+    };
 
-  public:
-    FileNotFound(std::string message) : _message(std::move(message)) {}
+    struct Section {
+        Elf64_Off headerOff;
+        Elf64_Shdr *header;
+        Elf64_Off contentOff;
+        char *content;
+    };
 
-    [[nodiscard]] const char *what() const noexcept override {
-      return this->_message.c_str();
-    }
-  };
+    struct Symbol {
+        Elf64_Off offset;
+        Elf64_Sym *sym;
+    };
 
-private:
-  std::filesystem::path _path;
-  int _fd;
-  struct stat _fileStat;
-  Elf_Ehdr _ehdr;
-  char _elfClass;
 
-  std::vector<Section> _sections;
+    class File {
+    public:
+        class FileNotFound : public std::exception {
+        private:
+            std::string _message;
 
-  [[nodiscard]] Section _createSection(Elf_Ehdr ehdr, int sectionIndex) const;
+        public:
+            FileNotFound(std::string message) : _message(std::move(message)) {
+            }
 
-  void _parseFile();
-  void _openFile();
+            [[nodiscard]] const char *what() const noexcept override {
+                return this->_message.c_str();
+            }
+        };
 
-public:
-  explicit File(std::filesystem::path path);
-  ~File() = default;
+    private:
+        std::filesystem::path _path;
+        int _fd;
+        struct stat _fileStat;
+        Elf_Ehdr _ehdr;
 
-  Section getSectionByName(std::string name);
-};
+        std::vector<Section> _sections;
+        std::vector<Symbol> _symbols;
+
+        Tree<Dwarf_Die> _debugTree;
+
+        void _parseSymbols();
+        void _parseSections();
+        void _parseDebug();
+        void _parseFile();
+        void _openFile();
+
+    public:
+        explicit File(std::filesystem::path path);
+        ~File() = default;
+
+        Section getSectionByName(std::string name);
+        Symbol getSymbolByOffset(Elf64_Off offset);
+    };
 } // namespace ELF

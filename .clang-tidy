@@ -3,7 +3,8 @@ Checks: "bugprone-*,cppcoreguidelines-*,clang-analyzer-*,readability-*,misc-*,mo
   -cppcoreguidelines-pro-type-vararg,
   -cppcoreguidelines-pro-type-union-access,
   -cppcoreguidelines-avoid-magic-numbers,
-  -cppcoreguidelines-pro-bounds-pointer-arithmetic
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-type-reinterpret-cast
 
   -readability-identifier-length,
   -readability-magic-numbers,

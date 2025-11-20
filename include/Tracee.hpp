@@ -1,37 +1,20 @@
 #pragma once
 
-#include <string>
-#include <exception>
-#include <format>
-#include <errno.h>
-#include <cstring>
-#include <sys/stat.h>
+#include <map>
 
-#include "utils.hpp"
-#include "constant.h"
+#include <unistd.h>
+
+#include "AddressMap.hpp"
+#include "File.hpp"
 
 class Tracee {
-public:
-    class ReadException : public std::exception {
-    private:
-        std::string _message;
-
-    public:
-        explicit ReadException(std::string message);
-        ~ReadException() = default;
-
-        const char *what() const noexcept override;
-    };
-
 private:
-    std::string _path;
-    struct stat _fileStat;
-    pid_t _pid;
+  AddressMap _addressMap;
+  std::map<std::string, ELF::File> _maps;
+
+  void _loadMaps();
 
 public:
-    explicit Tracee(std::string path);
-    ~Tracee();
-
-    pid_t getPid() const;
-    void setPid(pid_t pid);
+  explicit Tracee(pid_t pid);
+  ~Tracee() = default;
 };

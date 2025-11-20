@@ -78,3 +78,5 @@
 #define BIT62   (BIT61 << 1)
 #define BIT63   (BIT62 << 1)
 #define BIT64   (BIT63 << 1)
+
+#define FMT std::format

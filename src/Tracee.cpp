@@ -1,29 +1,21 @@
 #include "Tracee.hpp"
+#include "Logger.hpp"
 
-// Exception
-Tracee::ReadException::ReadException(std::string message) :
-    _message(message) {}
-
-const char *Tracee::ReadException::what() const noexcept {
-    return this->_message.c_str();
-}
-
-// Tracee
-Tracee::Tracee(std::string path) :
-    _path(path) {
-    int status = stat(this->_path.c_str(), &this->_fileStat);
-
-    if (status != 0) {
-        throw ReadException(std::format("{}: {}: {}", PROGRAM_NAME, strerror(errno), this->_path));
+void Tracee::_loadMaps() {
+  for (auto& address: _addressMap.getAddresses()) {
+    if (address.pathname.empty() || _maps.contains(address.pathname) ||
+        address.pathname[0] != '/') {
+      continue;
     }
+    try {
+      ELF::File file(address.pathname);
+      _maps.insert({address.pathname, file});
+    } catch (std::exception& e) {
+      Logger::log(std::format("Failed to open file"), Logger::ERR);
+    }
+  }
 }
 
-Tracee::~Tracee() {}
-
-pid_t Tracee::getPid() const {
-    return this->_pid;
-}
-
-void Tracee::setPid(pid_t pid) {
-    this->_pid = pid;
+Tracee::Tracee(pid_t pid) : _addressMap(pid) {
+  _loadMaps();
 }
