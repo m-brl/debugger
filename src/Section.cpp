@@ -1,11 +1,7 @@
 #include "Section.hpp"
 
 namespace ELF {
-    Section::Section() {
+    Section::Section() {}
 
-    }
-
-    void Section::resolveName() {
-
-    }
-}
+    void Section::resolveName() {}
+} // namespace ELF

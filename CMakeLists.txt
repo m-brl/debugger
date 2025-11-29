@@ -13,6 +13,7 @@ set(SOURCE_FILE
     src/main.cpp
     src/utils.cpp
     src/File.cpp
+    src/Die.cpp
     src/Logger.cpp
     src/AddressMap.cpp
 )

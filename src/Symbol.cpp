@@ -1,5 +1,3 @@
 #include "Symbol.hpp"
 
-Symbol::Symbol() {
-
-}
+Symbol::Symbol() {}

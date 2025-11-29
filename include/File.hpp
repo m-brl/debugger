@@ -1,11 +1,13 @@
 #pragma once
 
+#include "Die.hpp"
+
 #include <elf.h>
 #include <exception>
 #include <filesystem>
 #include <libdwarf.h>
-#include <vector>
 #include <sys/stat.h>
+#include <vector>
 
 template <typename T>
 struct Tree {
@@ -31,22 +33,7 @@ namespace ELF {
         Elf64_Sym *sym;
     };
 
-
     class File {
-    public:
-        class FileNotFound : public std::exception {
-        private:
-            std::string _message;
-
-        public:
-            FileNotFound(std::string message) : _message(std::move(message)) {
-            }
-
-            [[nodiscard]] const char *what() const noexcept override {
-                return this->_message.c_str();
-            }
-        };
-
     private:
         std::filesystem::path _path;
         int _fd;
@@ -56,11 +43,18 @@ namespace ELF {
         std::vector<Section> _sections;
         std::vector<Symbol> _symbols;
 
-        Tree<Dwarf_Die> _debugTree;
+        std::vector<Tree<Die>> _debugTree;
 
+        // Dwarf parsing
+        void _readCU(Dwarf_Debug* dw_dbg);
+        void _parseDebug();
+
+        // Dwarf utils
+        void _displayDieTree(Tree<Die> node, int depth);
+
+        // ELF parsing
         void _parseSymbols();
         void _parseSections();
-        void _parseDebug();
         void _parseFile();
         void _openFile();
 
@@ -70,5 +64,7 @@ namespace ELF {
 
         Section getSectionByName(std::string name);
         Symbol getSymbolByOffset(Elf64_Off offset);
+
+        void displayDieTree();
     };
 } // namespace ELF

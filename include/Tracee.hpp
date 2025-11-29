@@ -9,12 +9,12 @@
 
 class Tracee {
 private:
-  AddressMap _addressMap;
-  std::map<std::string, ELF::File> _maps;
+    AddressMap _addressMap;
+    std::map<std::string, ELF::File> _maps;
 
-  void _loadMaps();
+    void _loadMaps();
 
 public:
-  explicit Tracee(pid_t pid);
-  ~Tracee() = default;
+    explicit Tracee(pid_t pid);
+    ~Tracee() = default;
 };
