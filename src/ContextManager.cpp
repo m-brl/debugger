@@ -11,25 +11,25 @@ ContextManager& ContextManager::getInstance() {
     return *_instance;
 }
 
-std::shared_ptr<ExecutionWorkflow> ContextManager::getCurrentWorkflow() const {
-    return _currentWorkflow;
+std::shared_ptr<Process> ContextManager::getCurrentProcess() const {
+    return _currentProcess;
 }
 
-void ContextManager::setCurrentWorkflow(std::shared_ptr<ExecutionWorkflow> workflow) {
-    _currentWorkflow = workflow;
+void ContextManager::setCurrentProcess(std::shared_ptr<Process> process) {
+    _currentProcess = process;
 }
 
-std::vector<std::shared_ptr<ExecutionWorkflow>> ContextManager::getWorkflows() {
-    return _workflows;
+std::vector<std::shared_ptr<Process>> ContextManager::getProcesses() {
+    return _processes;
 }
 
-void ContextManager::registerWorkflow(std::shared_ptr<ExecutionWorkflow> workflow) {
-    _workflows.push_back(workflow);
+void ContextManager::registerProcess(std::shared_ptr<Process> process) {
+    _processes.push_back(process);
 }
 
-void ContextManager::unregisterWorkflow(std::shared_ptr<ExecutionWorkflow> workflow) {
-    auto it = std::find(_workflows.begin(), _workflows.end(), workflow);
-    if (it != _workflows.end()) {
-        _workflows.erase(it);
+void ContextManager::unregisterProcess(std::shared_ptr<Process> process) {
+    auto it = std::find(_processes.begin(), _processes.end(), process);
+    if (it != _processes.end()) {
+        _processes.erase(it);
     }
 }

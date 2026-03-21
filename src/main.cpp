@@ -16,10 +16,11 @@
 
 #include "AddressMap.hpp"
 #include "ContextManager.hpp"
-#include "ExecutionWorkflow.hpp"
+#include "Process.hpp"
 #include "File.hpp"
 #include "utils.hpp"
 #include "Command.hpp"
+#include "Notification.hpp"
 
 #include "display/Curses.hpp"
 #include "display/DisplayManager.hpp"
@@ -30,15 +31,17 @@ void sighandler(int signum) {
     switch (signum) {
         case SIGINT:
             {
-                auto pauseCommand = std::make_shared<PauseCommand>(*ContextManager::getInstance().getCurrentWorkflow());
+                NotificationManager::getInstance().addNotification(Notification("SIGINT received, pausing execution..."));
+                auto pauseCommand = std::make_shared<PauseCommand>(*ContextManager::getInstance().getCurrentProcess());
                 CommandManager::getInstance().addCommand(pauseCommand);
             }
             break;
-        case 3:
-        {
-            IS_RUNNING = false;
-            break;
-        }
+        case SIGQUIT:
+            {
+                auto quitCommand = std::make_shared<QuitCommand>(IS_RUNNING);
+                CommandManager::getInstance().addConfirmationCommand(quitCommand);
+                break;
+            }
         default:
             break;
     }
@@ -61,19 +64,19 @@ int main(int ac, char **av) {
     signal(SIGINT, &sighandler);
     signal(SIGQUIT, &sighandler);
 
-    auto workflow = std::make_shared<ExecutionWorkflow>();
-    workflow->setArguments(std::vector<std::string>(av + 1, av + ac));
-    workflow->launch();
-    workflow->continueExecution();
-    ContextManager::getInstance().registerWorkflow(workflow);
-    ContextManager::getInstance().setCurrentWorkflow(workflow);
+    auto process = std::make_shared<Process>();
+    process->setArguments(std::vector<std::string>(av + 1, av + ac));
+    process->launch();
+    ContextManager::getInstance().registerProcess(process);
+    ContextManager::getInstance().setCurrentProcess(process);
 
     initDisplay();
 
     while (IS_RUNNING) {
         CommandManager::getInstance().execute();
         DISPLAY_MANAGER.getDisplayInterface()->tick();
-        workflow->tick();
+        auto ptr = process.get();
+        ptr->tick();
     }
 
     return 0;

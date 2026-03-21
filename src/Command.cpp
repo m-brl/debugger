@@ -15,6 +15,10 @@ void CommandManager::addCommand(std::shared_ptr<ICommand> command) {
     _commandQueue.push(command);
 }
 
+void CommandManager::addConfirmationCommand(std::shared_ptr<ICommand> command) {
+    _confirmationQueue.push(command);
+}
+
 void CommandManager::execute() {
     while (!_commandQueue.empty()) {
         std::shared_ptr<ICommand> command = _commandQueue.front();
@@ -24,13 +28,27 @@ void CommandManager::execute() {
     }
 }
 
-const std::map<std::string, std::function<std::shared_ptr<ICommand>(ExecutionWorkflow&)>> CommandFactory::_commandMap = {
+std::shared_ptr<ICommand> CommandManager::getNextConfirmation() {
+    if (_confirmationQueue.empty()) {
+        return nullptr;
+    }
+
+    std::shared_ptr<ICommand> command = _confirmationQueue.front();
+    _confirmationQueue.pop();
+    return command;
+}
+
+
+
+
+
+const std::map<std::string, std::function<std::shared_ptr<ICommand>(Process&)>> CommandFactory::_commandMap = {
 };
 
-std::shared_ptr<ICommand> CommandFactory::createCommand(const std::string& commandName, ExecutionWorkflow& workflow) {
+std::shared_ptr<ICommand> CommandFactory::createCommand(const std::string& commandName, Process& process) {
     auto it = _commandMap.find(commandName);
     if (it != _commandMap.end()) {
-        return it->second(workflow);
+        return it->second(process);
     }
     return nullptr;
 }

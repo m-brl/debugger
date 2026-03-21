@@ -113,6 +113,34 @@ namespace ELF {
         }
     }
 
+    void ExecutableFile::_readCiesAndFdes() {
+        Dwarf_Error dw_error{};
+        Dwarf_Cie *cies = nullptr;
+        Dwarf_Signed cie_count{};
+        Dwarf_Fde *fdes = nullptr;
+        Dwarf_Signed fde_count{};
+
+        dwarf_get_fde_list(this->_dw_dbg, &cies, &cie_count, &fdes, &fde_count, &dw_error);
+        for (int i = 0; i < cie_count; i++) {
+            _debugCies.push_back(dwarf::Cie(cies[i]));
+        }
+        _debugCiesRaw = cies;
+        for (int i = 0; i < fde_count; i++) {
+            _debugFdes.push_back(dwarf::Fde(fdes[i]));
+        }
+        _debugFdesRaw = fdes;
+
+        dwarf_get_fde_list_eh(this->_dw_dbg, &cies, &cie_count, &fdes, &fde_count, &dw_error);
+        for (int i = 0; i < cie_count; i++) {
+            _debugHeCies.push_back(dwarf::Cie(cies[i]));
+        }
+        _debugHeCiesRaw = cies;
+        for (int i = 0; i < fde_count; i++) {
+            _debugHeFdes.push_back(dwarf::Fde(fdes[i]));
+        }
+        _debugHeFdesRaw = fdes;
+    }
+
     void ExecutableFile::_readCU() {
         Dwarf_Bool dw_is_info = 1;
         Dwarf_Die cu_die{};
@@ -164,6 +192,7 @@ namespace ELF {
             return;
         }
         _readCU();
+        _readCiesAndFdes();
     }
 
     void ExecutableFile::_parseFile() {
@@ -214,6 +243,20 @@ namespace ELF {
         } catch (const std::runtime_error& e) {
             return 0;
         }
+    }
+
+    dwarf::Fde ExecutableFile::getFdeAtPc(long rip) {
+        for (auto& fde: this->_debugFdes) {
+            if (fde.containsAddress(rip)) {
+                return fde;
+            }
+        }
+        for (auto& fde: this->_debugHeFdes) {
+            if (fde.containsAddress(rip)) {
+                return fde;
+            }
+        }
+        throw std::runtime_error("FDE not found for the given address");
     }
 
     Section ExecutableFile::getSectionByName(std::string name) {

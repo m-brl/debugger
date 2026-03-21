@@ -4,12 +4,13 @@
 #include <memory>
 #include <stack>
 #include <queue>
-#include "ExecutionWorkflow.hpp"
+#include "Process.hpp"
 
 class ICommand {
     public:
         virtual ~ICommand() = default;
         virtual void execute() = 0;
+        virtual std::string getDescription() const { return std::string("Generic Command"); }
 };
 
 class CommandManager {
@@ -18,6 +19,7 @@ class CommandManager {
         static std::mutex _instanceMutex;
 
         std::queue<std::shared_ptr<ICommand>> _commandQueue;
+        std::queue<std::shared_ptr<ICommand>> _confirmationQueue;
         std::stack<std::shared_ptr<ICommand>> _undoStack;
 
         CommandManager() = default;
@@ -28,7 +30,10 @@ class CommandManager {
         static CommandManager& getInstance();
 
         void addCommand(std::shared_ptr<ICommand> command);
+        void addConfirmationCommand(std::shared_ptr<ICommand> command);
         void execute();
+
+        std::shared_ptr<ICommand> getNextConfirmation();
 };
 
 
@@ -48,15 +53,32 @@ class QuitCommand : public ICommand {
         void execute() override {
             _isRunning = false;
         }
+
+        std::string getDescription() const override {
+            return std::string("quit the debugger");
+        }
+};
+
+class RunCommand : public ICommand {
+    private:
+        Process& _executionWorkflow;
+
+    public:
+        RunCommand(Process& process) : _executionWorkflow(process) {}
+        ~RunCommand() override = default;
+
+        void execute() override {
+            _executionWorkflow.continueExecution();
+        }
 };
 
 class AddBreakpointCommand : public ICommand {
     private:
-        ExecutionWorkflow& _executionWorkflow;
+        Process& _executionWorkflow;
         Breakpoint _breakpoint;
 
     public:
-        AddBreakpointCommand(ExecutionWorkflow& workflow, Breakpoint breakpoint) : _executionWorkflow(workflow), _breakpoint(breakpoint) {}
+        AddBreakpointCommand(Process& process, Breakpoint breakpoint) : _executionWorkflow(process), _breakpoint(breakpoint) {}
         ~AddBreakpointCommand() override = default;
 
         void execute() override {
@@ -67,11 +89,11 @@ class AddBreakpointCommand : public ICommand {
 
 class RemoveBreakpointCommand : public ICommand {
     private:
-        ExecutionWorkflow& _executionWorkflow;
+        Process& _executionWorkflow;
         Breakpoint _breakpoint;
 
     public:
-        RemoveBreakpointCommand(ExecutionWorkflow& workflow, Breakpoint breakpoint) : _executionWorkflow(workflow), _breakpoint(breakpoint) {}
+        RemoveBreakpointCommand(Process& process, Breakpoint breakpoint) : _executionWorkflow(process), _breakpoint(breakpoint) {}
         ~RemoveBreakpointCommand() override = default;
 
         void execute() override {
@@ -81,10 +103,10 @@ class RemoveBreakpointCommand : public ICommand {
 
 class ClearBreakpointsCommand : public ICommand {
     private:
-        ExecutionWorkflow& _executionWorkflow;
+        Process& _executionWorkflow;
 
     public:
-        ClearBreakpointsCommand(ExecutionWorkflow& workflow) : _executionWorkflow(workflow) {}
+        ClearBreakpointsCommand(Process& process) : _executionWorkflow(process) {}
         ~ClearBreakpointsCommand() override = default;
 
         void execute() override {
@@ -92,25 +114,12 @@ class ClearBreakpointsCommand : public ICommand {
         }
 };
 
-class StartCommand : public ICommand {
-    private:
-        ExecutionWorkflow& _executionWorkflow;
-
-    public:
-        StartCommand(ExecutionWorkflow& workflow) : _executionWorkflow(workflow) {}
-        ~StartCommand() override = default;
-
-        void execute() override {
-            _executionWorkflow.launch();
-        }
-};
-
 class ContinueCommand : public ICommand {
 private:
-    ExecutionWorkflow& _executionWorkflow;
+    Process& _executionWorkflow;
 
 public:
-    ContinueCommand(ExecutionWorkflow& workflow) : _executionWorkflow(workflow) {}
+    ContinueCommand(Process& process) : _executionWorkflow(process) {}
     ~ContinueCommand() override = default;
 
     void execute() override {
@@ -121,10 +130,10 @@ public:
 
 class PauseCommand : public ICommand {
 private:
-    ExecutionWorkflow& _executionWorkflow;
+    Process& _executionWorkflow;
 
 public:
-    PauseCommand(ExecutionWorkflow& workflow) : _executionWorkflow(workflow) {}
+    PauseCommand(Process& process) : _executionWorkflow(process) {}
     ~PauseCommand() override = default;
 
     void execute() override {
@@ -134,10 +143,10 @@ public:
 
 class StepCommand : public ICommand {
 private:
-    ExecutionWorkflow& _executionWorkflow;
+    Process& _executionWorkflow;
 
 public:
-    StepCommand(ExecutionWorkflow& workflow) : _executionWorkflow(workflow) {}
+    StepCommand(Process& process) : _executionWorkflow(process) {}
     ~StepCommand() override = default;
 
     void execute() override {
@@ -147,10 +156,10 @@ public:
 
 class NextCommand : public ICommand {
 private:
-    ExecutionWorkflow& _executionWorkflow;
+    Process& _executionWorkflow;
 
 public:
-    NextCommand(ExecutionWorkflow& workflow) : _executionWorkflow(workflow) {}
+    NextCommand(Process& process) : _executionWorkflow(process) {}
     ~NextCommand() override = default;
 
     void execute() override {
@@ -166,8 +175,8 @@ public:
 
 class CommandFactory {
     private:
-        static const std::map<std::string, std::function<std::shared_ptr<ICommand>(ExecutionWorkflow&)>> _commandMap;
+        static const std::map<std::string, std::function<std::shared_ptr<ICommand>(Process&)>> _commandMap;
 
     public:
-        static std::shared_ptr<ICommand> createCommand(const std::string& commandName, ExecutionWorkflow& workflow);
+        static std::shared_ptr<ICommand> createCommand(const std::string& commandName, Process& process);
 };

@@ -3,7 +3,7 @@
 #include <memory>
 #include <mutex>
 
-#include <ExecutionWorkflow.hpp>
+#include "Process.hpp"
 
 class ContextManager {
 private:
@@ -12,8 +12,8 @@ private:
 
     ContextManager() = default;
 
-    std::shared_ptr<ExecutionWorkflow> _currentWorkflow;
-    std::vector<std::shared_ptr<ExecutionWorkflow>> _workflows;
+    std::shared_ptr<Process> _currentProcess;
+    std::vector<std::shared_ptr<Process>> _processes;
 
 public:
     ~ContextManager() = default;
@@ -21,10 +21,10 @@ public:
     ContextManager& operator=(const ContextManager&) = delete;
     static ContextManager& getInstance();
 
-    std::shared_ptr<ExecutionWorkflow> getCurrentWorkflow() const;
-    void setCurrentWorkflow(std::shared_ptr<ExecutionWorkflow> workflow);
+    std::shared_ptr<Process> getCurrentProcess() const;
+    void setCurrentProcess(std::shared_ptr<Process> process);
 
-    std::vector<std::shared_ptr<ExecutionWorkflow>> getWorkflows();
-    void registerWorkflow(std::shared_ptr<ExecutionWorkflow> workflow);
-    void unregisterWorkflow(std::shared_ptr<ExecutionWorkflow> workflow);
+    std::vector<std::shared_ptr<Process>> getProcesses();
+    void registerProcess(std::shared_ptr<Process> process);
+    void unregisterProcess(std::shared_ptr<Process> process);
 };

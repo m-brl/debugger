@@ -5,6 +5,7 @@
 
 #include <curses.h>
 #include <memory>
+#include "Command.hpp"
 #include <string>
 #include <vector>
 #include <map>
@@ -43,9 +44,11 @@ namespace display {
             void _refresh();
             void _display();
 
+            std::shared_ptr<ICommand> _pendingConfirmation;
             std::vector<std::string> _log;
+            std::vector<std::string> _inputHistory;
+            std::vector<std::string>::iterator _inputHistoryIt;
             std::string _input;
-            std::map<std::vector<std::string>, std::function<void()>> _commandMap;
 
             void _handleCommand();
             void _readStdin();

@@ -4,25 +4,40 @@
 #include "Breakpoint.hpp"
 #include "constant.h"
 #include "File.hpp"
+#include "Module.hpp"
 
 #include <vector>
 #include <ranges>
 #include <sys/user.h>
 
-#define IS_TRACE_STARTED    BIT0
-#define IS_TRACE_RUNNING    BIT1
+#define IS_TRACE_STARTED    BIT1
+#define IS_TRACE_RUNNING    BIT2
 
-class ExecutionWorkflow {
+struct FDInfo {
+    int fd;
+    std::string path;
+    int pos;
+    int flags;
+    int mnt_id;
+    int ino;
+};
+
+class Process {
     private:
         pid_t _pid;
         std::vector<pid_t> _threadPids;
-        int _stdinPipe[2];
+
+
+        int _stdinPipe[3];
+
         int _stdoutPipe[2];
-        int _stderrPipe[2];
         std::string _stdoutLineBuffer;
         std::vector<std::string> _stdoutBuffer;
+
+        int _stderrPipe[2];
         std::string _stderrLineBuffer;
         std::vector<std::string> _stderrBuffer;
+
 
         std::vector<std::string> _arguments;
         std::vector<Breakpoint> _breakpoints;
@@ -37,8 +52,8 @@ class ExecutionWorkflow {
         void _getProcessStatus(pid_t pid);
 
     public:
-        ExecutionWorkflow();
-        ~ExecutionWorkflow();
+        Process();
+        ~Process();
 
         void setArguments(std::vector<std::string> args);
         void launch();
@@ -69,4 +84,12 @@ class ExecutionWorkflow {
         void next();
         void continueExecution();
         void pauseExecution();
+
+        std::vector<int> getFDs() const;
+        FDInfo getFDInfo(int fd) const;
+
+        void injectModule();
+
+        // dwarf
+        std::vector<dwarf::Fde> getStacktrace();
 };

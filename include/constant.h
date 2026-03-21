@@ -4,9 +4,8 @@
 
 #define SET_FLAG(value, flag) (value | flag)
 #define CLEAR_FLAG(value, flag) (value & ~flag)
-#define HAS_FLAG(value, flag) ((value & flag) == flag)
+#define HAS_FLAG(value, flag) ((value & (flag)) == (flag))
 
-#define BIT0 (0)
 #define BIT1 (1)
 #define BIT2 (BIT1 << 1)
 #define BIT3 (BIT2 << 1)

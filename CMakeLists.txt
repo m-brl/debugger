@@ -14,7 +14,7 @@ set(SOURCE_FILE
     src/Breakpoint.cpp
     src/Command.cpp
     src/utils.cpp
-    src/ExecutionWorkflow.cpp
+    src/Process.cpp
     src/File.cpp
     src/SourceFile.cpp
     src/Dwarf.cpp

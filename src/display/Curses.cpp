@@ -50,15 +50,15 @@ namespace display {
     }
 
     void CursesDisplay::_display() {
-        auto currentWorkflow = ContextManager::getInstance().getCurrentWorkflow();
+        auto currentProcess = ContextManager::getInstance().getCurrentProcess();
 
         // Display file
-        _displayBox(0, 0, COLS, 44, "File");
-        if (!HAS_FLAG(currentWorkflow->getStatus(), IS_TRACE_RUNNING)) {
-            unsigned long rip = ptrace(PTRACE_PEEKUSER, currentWorkflow->getPid(), 8 * RIP, NULL);
+        _displayBox(0, 0, COLS, 41, "File");
+        if (!HAS_FLAG(currentProcess->getStatus(), IS_TRACE_RUNNING)) {
+            unsigned long rip = ptrace(PTRACE_PEEKUSER, currentProcess->getPid(), 8 * RIP, NULL);
 
             try {
-                auto file = currentWorkflow->getAddressMap().getFile(rip);
+                auto file = currentProcess->getAddressMap().getFile(rip);
                 LineLocation lineLocation = file->getLineLocation(rip);
                 std::size_t first = std::max(1, static_cast<int>(lineLocation.lineNumber) - 20);
 
@@ -78,12 +78,12 @@ namespace display {
         }
 
         // Display stdout
-        auto stdoutBuf = currentWorkflow->getStdoutBuffer();
+        auto stdoutBuf = currentProcess->getStdoutBuffer();
         std::vector<std::string> croppedStdoutBuf(stdoutBuf.rbegin(), stdoutBuf.rbegin() + std::min(static_cast<std::size_t>(5), stdoutBuf.size()));
         _displayBox(0, LINES - 19, COLS / 2, 7, "Stdout", croppedStdoutBuf);
 
         // Display stderr
-        auto stderrBuf = currentWorkflow->getStderrBuffer();
+        auto stderrBuf = currentProcess->getStderrBuffer();
         std::vector<std::string> croppedStderrBuf(stderrBuf.rbegin(), stderrBuf.rbegin() + std::min(static_cast<std::size_t>(5), stderrBuf.size()));
         _displayBox(COLS / 2, LINES - 19, COLS / 2, 7, "Stderr", croppedStderrBuf);
 
@@ -97,7 +97,11 @@ namespace display {
                 }
                 mvwprintw(_mainWindow, LINES - 3 - i, 1, "%s", it->c_str());
             }
-            mvwprintw(_mainWindow, LINES - 2, 1, "> %s", _input.c_str());
+            if (_pendingConfirmation) {
+                mvprintw(LINES - 2, 1, "Are you sure do you want to %s (y/n)", _pendingConfirmation->getDescription().c_str());
+            } else {
+                mvwprintw(_mainWindow, LINES - 2, 1, "> %s", _input.c_str());
+            }
         }
     }
 
@@ -111,7 +115,7 @@ namespace display {
             args.push_back(arg);
         }
 
-        auto workflow = ContextManager::getInstance().getCurrentWorkflow();
+        auto process = ContextManager::getInstance().getCurrentProcess();
 
         if (command == "display") {
             if (args.size() < 1) {
@@ -133,40 +137,39 @@ namespace display {
         }
         if (command == "quit") {
             auto quitCommand = std::make_shared<QuitCommand>(IS_RUNNING);
-            CommandManager::getInstance().addCommand(quitCommand);
-            _log.push_back("Quitting...");
+            CommandManager::getInstance().addConfirmationCommand(quitCommand);
             return;
         }
         if (command == "continue") {
-            auto continueCommand = std::make_shared<ContinueCommand>(*ContextManager::getInstance().getCurrentWorkflow());
+            auto continueCommand = std::make_shared<ContinueCommand>(*ContextManager::getInstance().getCurrentProcess());
             CommandManager::getInstance().addCommand(continueCommand);
             _log.push_back("Continuing...");
             return;
         }
         if (command == "step") {
-            auto stepCommand = std::make_shared<StepCommand>(*ContextManager::getInstance().getCurrentWorkflow());
+            auto stepCommand = std::make_shared<StepCommand>(*ContextManager::getInstance().getCurrentProcess());
             CommandManager::getInstance().addCommand(stepCommand);
             return;
         }
         if (command == "next") {
-            auto nextCommand = std::make_shared<NextCommand>(*ContextManager::getInstance().getCurrentWorkflow());
+            auto nextCommand = std::make_shared<NextCommand>(*ContextManager::getInstance().getCurrentProcess());
             CommandManager::getInstance().addCommand(nextCommand);
             return;
         }
         if (command == "pid") {
-            pid_t pid = ContextManager::getInstance().getCurrentWorkflow()->getPid();
+            pid_t pid = ContextManager::getInstance().getCurrentProcess()->getPid();
             _log.push_back("PID: " + std::to_string(pid));
             return;
         }
         if (command == "threads") {
             int i = 0;
-            for (auto& workflow : ContextManager::getInstance().getWorkflows()) {
-                _log.push_back(std::format("Thread {}: {}", i, workflow->getPid()));
+            for (auto& process : ContextManager::getInstance().getProcesses()) {
+                _log.push_back(std::format("Thread {}: {}", i, process->getPid()));
                 i++;
             }
         }
         if (command == "symbols") {
-            auto file = workflow->getAddressMap().getExeFile();
+            auto file = process->getAddressMap().getExeFile();
             _log.push_back("Symbols of " + file->getPath().string() + ":");
             for (auto& symbol : file->getSymbols()) {
                 if (symbol.sym->st_value == 0)
@@ -175,27 +178,33 @@ namespace display {
             }
         }
         if (command == "frame") {
-            unsigned long rip = ptrace(PTRACE_PEEKUSER, workflow->getPid(), 8 * RIP, NULL);
+            unsigned long rip = ptrace(PTRACE_PEEKUSER, process->getPid(), 8 * RIP, NULL);
+            auto stacktrace = ContextManager::getInstance().getCurrentProcess()->getStacktrace();
 
-            Dwarf_Fde *fdeList;
-            Dwarf_Error err;
-            if (dwarf_get_fde_list(workflow->getAddressMap().getExeFile()->getDwarfDebug(), nullptr, nullptr, &fdeList, nullptr, &err) != DW_DLV_OK) {
-                _log.push_back("Failed to get FDE list");
-                return;
+            for (auto fde: stacktrace) {
+                auto file = process->getAddressMap().getFile(fde.getLowPC());
+                _log.push_back(std::format("0x{:x} - 0x{:x})", fde.getLowPC(), fde.getHighPC()));
             }
 
+            return;
+        }
 
-
-
-
+        if (command == "fd") {
+            auto fds = process->getFDs();
+            _log.push_back("File Descriptors:");
+            for (auto fd : fds) {
+                auto fdInfo = process->getFDInfo(fd);
+                _log.push_back(std::format("FD {}: {}", fd, fdInfo.path));
+            }
+            return;
         }
 
         if (command == "rip") {
-            auto pid = workflow->getPid();
+            auto pid = process->getPid();
             unsigned long rip = ptrace(PTRACE_PEEKUSER, pid, 8 * RIP, NULL);
 
             try {
-                std::string path = ContextManager::getInstance().getCurrentWorkflow()->getAddressMap().getAddress(rip).pathname;
+                std::string path = ContextManager::getInstance().getCurrentProcess()->getAddressMap().getAddress(rip).pathname;
                 _log.push_back(std::format("RIP: 0x{:x} ({})", rip, path));
             } catch (const std::exception& e) {
                 _log.push_back(std::format("RIP: 0x{:x} (unknown)", rip));
@@ -204,7 +213,7 @@ namespace display {
             std::shared_ptr<dwarf::Line> matchedLine = nullptr;
 
             try {
-                auto file = workflow->getAddressMap().getFile(rip);
+                auto file = process->getAddressMap().getFile(rip);
                 for (auto& line : file->getDebugLines()) {
                     if (line->getAddress() > rip) {
                         break;
@@ -224,8 +233,15 @@ namespace display {
         }
 
         if (command == "clear") {
-            ContextManager::getInstance().getCurrentWorkflow()->clearStdoutBuffer();
-            ContextManager::getInstance().getCurrentWorkflow()->clearStderrBuffer();
+            ContextManager::getInstance().getCurrentProcess()->clearStdoutBuffer();
+            ContextManager::getInstance().getCurrentProcess()->clearStderrBuffer();
+        }
+        if (command == "status") {
+            auto status = process->getStatus();
+            _log.push_back(std::format("Process status: {}{}",
+                HAS_FLAG(status, IS_TRACE_STARTED) ? "Started " : "",
+                HAS_FLAG(status, IS_TRACE_RUNNING) ? "Running " : ""
+            ));
         }
         if (command == "break") {
             if (args.size() < 1) {
@@ -236,7 +252,7 @@ namespace display {
             if (args[0].substr(0, 2) == "0x") {
                 address = std::stoul(args[0], nullptr, 16);
             } else {
-                auto file = workflow->getAddressMap().getExeFile();
+                auto file = process->getAddressMap().getExeFile();
                 ELF::Symbol symbol = file->getSymbolByName(args[0]);
                 if (symbol.sym->st_value != 0)
                     address = symbol.sym->st_value;
@@ -244,7 +260,7 @@ namespace display {
                     address = symbol.relocatedAddress;
                 }
             }
-            std::shared_ptr<ICommand> command = std::shared_ptr<ICommand>(new AddBreakpointCommand(*workflow, {workflow->getPid(), address}));
+            std::shared_ptr<ICommand> command = std::shared_ptr<ICommand>(new AddBreakpointCommand(*process, {process->getPid(), address}));
             CommandManager::getInstance().addCommand(command);
             _log.push_back(std::format("Breakpoint added at 0x{:x}", address));
         }
@@ -256,8 +272,23 @@ namespace display {
         if (ch == ERR) {
             return;
         }
+
+        if (_pendingConfirmation) {
+            if (ch == 'y' || ch == 'Y') {
+                CommandManager::getInstance().addCommand(_pendingConfirmation);
+            }
+            _pendingConfirmation = nullptr;
+            return;
+        }
+
         if (ch == 10) {
-            _handleCommand();
+            try {
+                _handleCommand();
+            } catch (const std::exception& e) {
+                _log.push_back(std::string("Error: ") + e.what());
+            }
+            _inputHistory.push_back(_input);
+            _inputHistoryIt = _inputHistory.end();
             _input.clear();
             return;
         }
@@ -267,10 +298,36 @@ namespace display {
             }
             return;
         }
+        if (ch == 27) {
+            ch = getch();
+            if (ch == 91) {
+                ch = getch();
+                switch (ch) {
+                    case 65: // Up
+                        if (_inputHistoryIt != _inputHistory.begin())
+                            _inputHistoryIt--;
+                        _input = *_inputHistoryIt;
+                        _log.push_back("Up arrow pressed");
+                        return;
+                    case 66: // Down
+                        if (_inputHistoryIt != _inputHistory.end() - 1)
+                            _inputHistoryIt++;
+                        _input = *_inputHistoryIt;
+                        _log.push_back("Down arrow pressed");
+                        return;
+                    case 67: // Right
+                        _log.push_back("Right arrow pressed");
+                        break;
+                    case 68: // Left
+                        _log.push_back("Left arrow pressed");
+                        break;
+                }
+            }
+        }
         _input.push_back(ch);
     }
 
-    CursesDisplay::CursesDisplay() : _mainWindow(nullptr) {
+    CursesDisplay::CursesDisplay() : _mainWindow(nullptr), _inputHistoryIt(_inputHistory.end()) {
 
     }
 
@@ -293,6 +350,10 @@ namespace display {
 
         _readStdin();
         _fetchNotifications();
+
+        if (!_pendingConfirmation) {
+            _pendingConfirmation = CommandManager::getInstance().getNextConfirmation();
+        }
 
         _clear();
         _display();

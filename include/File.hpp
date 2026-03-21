@@ -2,6 +2,7 @@
 
 #include "Dwarf.hpp"
 #include "SourceFile.hpp"
+#include "utils/Tree.hpp"
 
 #include <iostream>
 #include <format>
@@ -12,29 +13,6 @@
 #include <libdwarf.h>
 #include <sys/stat.h>
 #include <vector>
-
-template <typename T>
-struct Tree {
-    T data;
-    std::vector<Tree<T>> children;
-};
-
-template <typename T>
-T& searchTree(Tree<T>& tree, std::function<bool(T&)> predicate) {
-    if (predicate(tree.data)) {
-        return tree.data;
-    }
-    for (auto& child : tree.children) {
-        try {
-            return searchTree(child, predicate);
-        } catch (const std::runtime_error&) {
-            continue;
-        }
-    }
-    throw std::runtime_error("Element not found in tree");
-}
-
-
 
 namespace ELF {
     union Elf_Ehdr {
@@ -69,11 +47,20 @@ namespace ELF {
         Dwarf_Debug _dw_dbg;
         Tree<std::shared_ptr<dwarf::Die>> _debugTree;
         std::vector<std::shared_ptr<dwarf::Line>> _debugLines;
+        std::vector<dwarf::Cie> _debugCies;
+        Dwarf_Cie *_debugCiesRaw;
+        std::vector<dwarf::Fde> _debugFdes;
+        Dwarf_Fde *_debugFdesRaw;
+        std::vector<dwarf::Cie> _debugHeCies;
+        Dwarf_Cie *_debugHeCiesRaw;
+        std::vector<dwarf::Fde> _debugHeFdes;
+        Dwarf_Fde *_debugHeFdesRaw;
 
         std::map<std::string, std::shared_ptr<SourceFile>> _sourceFiles;
 
         // Dwarf parsing
         void _readLines(Dwarf_Die cu_die);
+        void _readCiesAndFdes();
         void _readCU();
         void _parseDebug();
 
@@ -102,6 +89,7 @@ namespace ELF {
         // Dwarf
         Dwarf_Addr getSymbolAddress(std::string name);
         Dwarf_Debug getDwarfDebug() const { return _dw_dbg; }
+        dwarf::Fde getFdeAtPc(long rip);
 
         LineLocation getLineLocation(Dwarf_Addr address);
         std::vector<std::shared_ptr<dwarf::Line>> getDebugLines() const;

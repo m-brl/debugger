@@ -1,17 +1,19 @@
-#include "ExecutionWorkflow.hpp"
+#include "Process.hpp"
 #include "ContextManager.hpp"
 #include "Logger.hpp"
 #include "Notification.hpp"
 #include "Command.hpp"
 
 #include <cstring>
+#include <fstream>
 #include <unistd.h>
+#include <dirent.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <sys/user.h>
 #include <sys/reg.h>
 
-void ExecutionWorkflow::_getProcessStatus(pid_t pid) {
+void Process::_getProcessStatus(pid_t pid) {
     int status = 0;
     pid_t result = waitpid(pid, &status, WNOHANG | WUNTRACED);
     if (result == 0 || result == -1) {
@@ -73,17 +75,17 @@ void ExecutionWorkflow::_getProcessStatus(pid_t pid) {
     }
 }
 
-ExecutionWorkflow::ExecutionWorkflow() {
+Process::Process() : _pid(-1), _status(0) {
 }
 
-ExecutionWorkflow::~ExecutionWorkflow() {
+Process::~Process() {
 }
 
-void ExecutionWorkflow::setArguments(std::vector<std::string> args) {
+void Process::setArguments(std::vector<std::string> args) {
     _arguments = args;
 }
 
-void ExecutionWorkflow::launch() {
+void Process::launch() {
     if (_arguments.empty()) {
         throw std::runtime_error("No program specified to execute.");
     }
@@ -91,10 +93,10 @@ void ExecutionWorkflow::launch() {
     std::filesystem::path program = std::filesystem::absolute(_arguments[0]);
 
     char **argv = new char*[_arguments.size() + 1];
+    memset(argv, 0, sizeof(char*) * (_arguments.size() + 1));
     for (size_t i = 0; i < _arguments.size(); ++i) {
         argv[i] = const_cast<char *>(_arguments[i].c_str());
     }
-    argv[_arguments.size()] = nullptr;
 
     if ((pipe(_stdinPipe) == -1) ||
         (pipe(_stdoutPipe) == -1) ||
@@ -156,7 +158,10 @@ void ExecutionWorkflow::launch() {
     _status = SET_FLAG(_status, IS_TRACE_STARTED);
 }
 
-void ExecutionWorkflow::tick() {
+void Process::tick() {
+    if (!HAS_FLAG(_status, IS_TRACE_STARTED))
+        return;
+
     char buffer[256];
     ssize_t bytesRead;
 
@@ -198,21 +203,21 @@ void ExecutionWorkflow::tick() {
 
 
 
-void ExecutionWorkflow::addBreakpoint(Breakpoint breakpoint) {
+void Process::addBreakpoint(Breakpoint breakpoint) {
     _breakpoints.push_back(breakpoint);
 }
 
-void ExecutionWorkflow::removeBreakpoint(Breakpoint breakpoint) {
+void Process::removeBreakpoint(Breakpoint breakpoint) {
     auto it = std::ranges::find(_breakpoints.begin(), _breakpoints.end(), breakpoint);
     if (it != _breakpoints.end())
         _breakpoints.erase(it);
 }
 
-void ExecutionWorkflow::clearBreakpoints() {
+void Process::clearBreakpoints() {
     _breakpoints.clear();
 }
 
-void ExecutionWorkflow::step() {
+void Process::step() {
     if (!HAS_FLAG(_status, IS_TRACE_STARTED))
         return;
 
@@ -221,7 +226,7 @@ void ExecutionWorkflow::step() {
     waitpid(_pid, &status, 0);
 }
 
-void ExecutionWorkflow::next() {
+void Process::next() {
     if (!HAS_FLAG(_status, IS_TRACE_STARTED))
         return;
 
@@ -237,7 +242,7 @@ void ExecutionWorkflow::next() {
     }
 }
 
-void ExecutionWorkflow::continueExecution() {
+void Process::continueExecution() {
     if (!HAS_FLAG(_status, IS_TRACE_STARTED))
         return;
 
@@ -248,7 +253,7 @@ void ExecutionWorkflow::continueExecution() {
     _status = SET_FLAG(_status, IS_TRACE_RUNNING);
 }
 
-void ExecutionWorkflow::pauseExecution() {
+void Process::pauseExecution() {
     if (!HAS_FLAG(_status, IS_TRACE_STARTED))
         return;
 
@@ -261,4 +266,108 @@ void ExecutionWorkflow::pauseExecution() {
         waitpid(tid, nullptr, WUNTRACED);
     }
     CLEAR_FLAG(_status, IS_TRACE_RUNNING);
+}
+
+std::vector<int> Process::getFDs() const {
+    std::vector<int> fds;
+    DIR *dir = opendir(std::format("/proc/{}/fd", _pid).c_str());
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_name[0] == '.')
+            continue;
+        fds.push_back(atoi(entry->d_name));
+    }
+    closedir(dir);
+    return fds;
+}
+
+FDInfo Process::getFDInfo(int fd) const {
+    FDInfo info {};
+
+    info.fd = fd;
+
+    {
+        char buf[PATH_MAX];
+        size_t size = readlink(std::format("/proc/{}/fd/{}", _pid, fd).c_str(), buf, sizeof(buf) - 1);
+        buf[size] = '\0';
+        info.path = std::string(buf);
+    }
+
+    {
+        std::ifstream fdinfoFile(std::format("/proc/{}/fdinfo/{}", _pid, fd));
+        std::string line;
+
+        std::getline(fdinfoFile, line);
+        sscanf(line.c_str(), "pos: %d", &info.pos);
+        std::getline(fdinfoFile, line);
+        sscanf(line.c_str(), "flags: %o", &info.flags);
+        std::getline(fdinfoFile, line);
+        sscanf(line.c_str(), "mnt_id: %d", &info.mnt_id);
+        std::getline(fdinfoFile, line);
+        sscanf(line.c_str(), "ino: %d", &info.ino);
+    }
+
+    return info;
+}
+
+void Process::injectModule() {
+    char path[PATH_MAX] = {};
+    strcpy(path, "./file/tmp.so");
+
+    struct user_regs_struct regs, original_regs;
+    ptrace(PTRACE_GETREGS, _pid, NULL, &regs);
+    memcpy(&original_regs, &regs, sizeof(regs));
+
+    regs.rsp -= 128;
+
+    size_t size = strlen(path) / 8 + 1;
+    for (size_t i = 0; i < size; ++i) {
+        ptrace(PTRACE_POKETEXT, _pid, regs.rsp + i * 8, *((long *)(path + i * 8)));
+    }
+    ptrace(PTRACE_POKETEXT, _pid, regs.rsp, path);
+}
+
+std::vector<dwarf::Fde> Process::getStacktrace() {
+    std::vector<dwarf::Fde> stacktrace;
+
+    long rip = ptrace(PTRACE_PEEKUSER, _pid, 8 * RIP, NULL);
+
+    auto fde = getAddressMap().getFile(rip)->getFdeAtPc(rip);
+    long cfa = 0;
+    Dwarf_Small dw_value_type;
+    Dwarf_Unsigned dw_offset_relevant;
+    Dwarf_Unsigned dw_register;
+    Dwarf_Signed dw_offset;
+    Dwarf_Block dw_block_content;
+    Dwarf_Addr dw_row_pc_out;
+    Dwarf_Bool dw_has_more_rows;
+    Dwarf_Addr dw_subsequent_pc;
+    Dwarf_Error error{};
+
+
+    dw_has_more_rows = true;
+    stacktrace.push_back(fde);
+    int i = 2;
+
+
+    while (dw_has_more_rows && i-- > 0) {
+
+        dwarf_get_fde_info_for_reg3_c(fde.getFde(), DW_FRAME_CFA_COL, rip, &dw_value_type, &dw_offset_relevant, &dw_register, &dw_offset, &dw_block_content, &dw_row_pc_out, &dw_has_more_rows, &dw_subsequent_pc, &error);
+        if (dw_value_type == DW_EXPR_OFFSET) {
+            long reg = ptrace(PTRACE_PEEKUSER, _pid, 8 * RegMapTable[dw_register].processorRegNum, NULL);
+            cfa = reg + dw_offset;
+        }
+
+        dwarf_get_fde_info_for_reg3_c(fde.getFde(), 16, rip, &dw_value_type, &dw_offset_relevant, &dw_register, &dw_offset, &dw_block_content, &dw_row_pc_out, &dw_has_more_rows, &dw_subsequent_pc, &error);
+        if (dw_value_type == DW_EXPR_OFFSET) {
+            long returnAddress = cfa + dw_offset;
+            long reg = ptrace(PTRACE_PEEKDATA, _pid, returnAddress, NULL);
+            fde = getAddressMap().getFile(reg)->getFdeAtPc(reg);
+            rip = returnAddress;
+            stacktrace.push_back(fde);
+        }
+
+    }
+
+    return stacktrace;
 }

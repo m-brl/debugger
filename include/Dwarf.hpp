@@ -8,6 +8,35 @@
 
 #include <libdwarf.h>
 #include <dwarf.h>
+#include <iostream>
+#include <csignal>
+
+#include <sys/reg.h>
+
+struct RegMap {
+    int dwarfRegNum;
+    int processorRegNum;
+    std::string regName;
+};
+
+const RegMap RegMapTable[] = {
+    {0, RAX, "rax"},
+    {1, RDX, "rdx"},
+    {2, RCX, "rcx"},
+    {3, RBX, "rbx"},
+    {4, RSI, "rsi"},
+    {5, RDI, "rdi"},
+    {6, RBP, "rbp"},
+    {7, RSP, "rsp"},
+    {8, R8, "r8"},
+    {9, R9, "r9"},
+    {10, R10, "r10"},
+    {11, R11, "r11"},
+    {12, R12, "r12"},
+    {13, R13, "r13"},
+    {14, R14, "r14"},
+    {15, 15, "r15"},
+};
 
 namespace dwarf {
     class Line {
@@ -25,6 +54,39 @@ namespace dwarf {
             Dwarf_Addr getAddress();
             std::string getFileName();
             Dwarf_Unsigned getLineNumber();
+    };
+
+    class Cie {
+        protected:
+            Dwarf_Cie _cie;
+
+        public:
+            explicit Cie(Dwarf_Cie cie) : _cie(cie) {}
+            ~Cie() = default;
+
+            Dwarf_Cie getCie() const { return this->_cie; }
+    };
+
+    class Fde {
+        protected:
+            Dwarf_Fde _fde;
+            Dwarf_Addr _lowPC;
+            Dwarf_Addr _highPC;
+            Dwarf_Unsigned _funcLen;
+
+        public:
+            explicit Fde(Dwarf_Fde fde) : _fde(fde) {
+                dwarf_get_fde_range(this->_fde, &this->_lowPC, &this->_funcLen, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+                _highPC = this->_lowPC + this->_funcLen;
+            }
+            ~Fde() = default;
+
+            Dwarf_Fde getFde() const { return this->_fde; }
+            Dwarf_Addr getLowPC() const { return this->_lowPC; }
+            Dwarf_Addr getHighPC() const { return this->_highPC; }
+            bool containsAddress(Dwarf_Addr address) const {
+                return address >= this->_lowPC && address < this->_highPC;
+            }
     };
 
     class Die {

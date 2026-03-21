@@ -45,7 +45,7 @@ void AddressMap::_parseMapsLine(std::string line) {
             if (std::filesystem::exists(address.pathname)) {
                 auto file = std::make_shared<ELF::ExecutableFile>(address.pathname);
                 _loadedFiles[address.pathname] = file;
-                if (address.pathname == _exePath.string()) {
+                if (std::filesystem::equivalent(address.pathname, _exePath.string())) {
                     _exeFile = file;
                 }
             }
