@@ -47,13 +47,13 @@ namespace ELF {
         Dwarf_Debug _dw_dbg;
         Tree<std::shared_ptr<dwarf::Die>> _debugTree;
         std::vector<std::shared_ptr<dwarf::Line>> _debugLines;
-        std::vector<dwarf::Cie> _debugCies;
+        std::vector<std::shared_ptr<dwarf::Cie>> _debugCies;
         Dwarf_Cie *_debugCiesRaw;
-        std::vector<dwarf::Fde> _debugFdes;
+        std::vector<std::shared_ptr<dwarf::Fde>> _debugFdes;
         Dwarf_Fde *_debugFdesRaw;
-        std::vector<dwarf::Cie> _debugHeCies;
+        std::vector<std::shared_ptr<dwarf::Cie>> _debugHeCies;
         Dwarf_Cie *_debugHeCiesRaw;
-        std::vector<dwarf::Fde> _debugHeFdes;
+        std::vector<std::shared_ptr<dwarf::Fde>> _debugHeFdes;
         Dwarf_Fde *_debugHeFdesRaw;
 
         std::map<std::string, std::shared_ptr<SourceFile>> _sourceFiles;
@@ -89,7 +89,9 @@ namespace ELF {
         // Dwarf
         Dwarf_Addr getSymbolAddress(std::string name);
         Dwarf_Debug getDwarfDebug() const { return _dw_dbg; }
-        dwarf::Fde getFdeAtPc(long rip);
+        std::shared_ptr<dwarf::Fde> getFdeAtPc(long rip);
+        std::shared_ptr<dwarf::Die> getDieAtPc(long rip);
+
 
         LineLocation getLineLocation(Dwarf_Addr address);
         std::vector<std::shared_ptr<dwarf::Line>> getDebugLines() const;

@@ -265,7 +265,7 @@ void Process::pauseExecution() {
     for (auto tid : _threadPids) {
         waitpid(tid, nullptr, WUNTRACED);
     }
-    CLEAR_FLAG(_status, IS_TRACE_RUNNING);
+    _status = CLEAR_FLAG(_status, IS_TRACE_RUNNING);
 }
 
 std::vector<int> Process::getFDs() const {
@@ -327,13 +327,15 @@ void Process::injectModule() {
     ptrace(PTRACE_POKETEXT, _pid, regs.rsp, path);
 }
 
-std::vector<dwarf::Fde> Process::getStacktrace() {
-    std::vector<dwarf::Fde> stacktrace;
+std::vector<std::shared_ptr<dwarf::Fde>> Process::getStacktrace() {
+    std::vector<std::shared_ptr<dwarf::Fde>> stacktrace;
 
     long rip = ptrace(PTRACE_PEEKUSER, _pid, 8 * RIP, NULL);
 
     auto fde = getAddressMap().getFile(rip)->getFdeAtPc(rip);
+    stacktrace.push_back(fde);
     long cfa = 0;
+
     Dwarf_Small dw_value_type;
     Dwarf_Unsigned dw_offset_relevant;
     Dwarf_Unsigned dw_register;
@@ -346,25 +348,51 @@ std::vector<dwarf::Fde> Process::getStacktrace() {
 
 
     dw_has_more_rows = true;
-    stacktrace.push_back(fde);
-    int i = 2;
+    int i = 5;
 
 
     while (dw_has_more_rows && i-- > 0) {
-
-        dwarf_get_fde_info_for_reg3_c(fde.getFde(), DW_FRAME_CFA_COL, rip, &dw_value_type, &dw_offset_relevant, &dw_register, &dw_offset, &dw_block_content, &dw_row_pc_out, &dw_has_more_rows, &dw_subsequent_pc, &error);
+        // Fetching CFA
+        int status = dwarf_get_fde_info_for_cfa_reg3_c(fde->getFde(), rip, &dw_value_type, &dw_offset_relevant, &dw_register, &dw_offset, &dw_block_content, &dw_row_pc_out, &dw_has_more_rows, &dw_subsequent_pc, &error);
+        switch (status) {
+            case DW_DLV_OK:
+                break;
+            case DW_DLV_NO_ENTRY:
+                NotificationManager::getInstance().addNotification(Notification("No entry for this frame"));
+                return stacktrace;
+            case DW_DLV_ERROR:
+                const char *error_msg = dwarf_errmsg(error);
+                NotificationManager::getInstance().addNotification(Notification("Error while retrieving frame information for register: " + std::string(error_msg)));
+                return stacktrace;
+        }
         if (dw_value_type == DW_EXPR_OFFSET) {
             long reg = ptrace(PTRACE_PEEKUSER, _pid, 8 * RegMapTable[dw_register].processorRegNum, NULL);
             cfa = reg + dw_offset;
+        } else {
+            NotificationManager::getInstance().addNotification(Notification("Not handled yet"));
         }
 
-        dwarf_get_fde_info_for_reg3_c(fde.getFde(), 16, rip, &dw_value_type, &dw_offset_relevant, &dw_register, &dw_offset, &dw_block_content, &dw_row_pc_out, &dw_has_more_rows, &dw_subsequent_pc, &error);
+
+        // Fetching return address
+        if (dwarf_get_fde_info_for_reg3_c(fde->getFde(), 16, rip, &dw_value_type, &dw_offset_relevant, &dw_register, &dw_offset, &dw_block_content, &dw_row_pc_out, &dw_has_more_rows, &dw_subsequent_pc, &error) != DW_DLV_OK) {
+            break;
+        }
         if (dw_value_type == DW_EXPR_OFFSET) {
             long returnAddress = cfa + dw_offset;
-            long reg = ptrace(PTRACE_PEEKDATA, _pid, returnAddress, NULL);
-            fde = getAddressMap().getFile(reg)->getFdeAtPc(reg);
-            rip = returnAddress;
-            stacktrace.push_back(fde);
+            rip = ptrace(PTRACE_PEEKDATA, _pid, returnAddress, NULL);
+            if (rip == 0 || rip == -1) {
+                break;
+            }
+
+            try {
+                fde = getAddressMap().getFile(rip)->getFdeAtPc(rip);
+                stacktrace.push_back(fde);
+            } catch (const std::exception& e) {
+                break;
+            }
+        } else {
+            NotificationManager::getInstance().addNotification(Notification("Not handled yet"));
+            break;
         }
 
     }

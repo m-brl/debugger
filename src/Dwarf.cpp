@@ -1,4 +1,5 @@
 #include "Dwarf.hpp"
+#include "Notification.hpp"
 #include "Logger.hpp"
 #include <iostream>
 #include <stdexcept>
@@ -96,22 +97,38 @@ namespace dwarf {
     }
 
 
-
     std::string DieSubprogram::getSubprogramName() {
         Dwarf_Error dw_error{};
         Dwarf_Attribute attr_name{};
+
+        if (this->_cachedSubprogramName.has_value()) {
+            return this->_cachedSubprogramName.value();
+        }
         if (dwarf_attr(this->_die, DW_AT_name, &attr_name, &dw_error) != DW_DLV_OK) {
             throw std::runtime_error("Failed to get subprogram name attribute");
         }
         char *subprogram_name{};
         dwarf_formstring(attr_name, &subprogram_name, &dw_error);
+        this->_cachedSubprogramName = std::string(subprogram_name);
 
-        Dwarf_Addr low_pc{};
-        if (dwarf_attr(this->_die, DW_AT_low_pc, &attr_name, &dw_error) == DW_DLV_OK) {
-            dwarf_formaddr(attr_name, &low_pc, &dw_error);
+        return FMT("{} (0x{:x})", std::string(subprogram_name), this->getLowPC());
+    }
+
+    Dwarf_Addr DieSubprogram::getHighPC() {
+        Dwarf_Error dw_error{};
+        Dwarf_Attribute attr_high_pc{};
+
+        if (this->_cachedHighPC.has_value()) {
+            return this->_cachedHighPC.value();
         }
-
-        return FMT("{} (0x{:x})", std::string(subprogram_name), low_pc);
+        if (dwarf_attr(this->_die, DW_AT_high_pc, &attr_high_pc, &dw_error) != DW_DLV_OK) {
+            throw std::runtime_error("Failed to get subprogram high PC attribute");
+        }
+        Dwarf_Addr high_pc{};
+        dwarf_formaddr(attr_high_pc, &high_pc, &dw_error);
+        NotificationManager::getInstance().addNotification(Notification(FMT("Retrieving high PC for subprogram {} (0x{:x})", this->getSubprogramName(), high_pc)));
+        this->_cachedHighPC = high_pc;
+        return high_pc;
     }
 
 

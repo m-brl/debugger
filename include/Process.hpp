@@ -91,5 +91,5 @@ class Process {
         void injectModule();
 
         // dwarf
-        std::vector<dwarf::Fde> getStacktrace();
+        std::vector<std::shared_ptr<dwarf::Fde>> getStacktrace();
 };

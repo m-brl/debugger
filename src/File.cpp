@@ -1,4 +1,7 @@
 #include "File.hpp"
+#include "constant.h"
+#include "utils/Tree.hpp"
+#include "Notification.hpp"
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -7,6 +10,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <dwarf.h>
 #include <dwarf.h>
 #include <libdwarf.h>
 
@@ -120,24 +124,35 @@ namespace ELF {
         Dwarf_Fde *fdes = nullptr;
         Dwarf_Signed fde_count{};
 
-        dwarf_get_fde_list(this->_dw_dbg, &cies, &cie_count, &fdes, &fde_count, &dw_error);
+        int status = dwarf_get_fde_list(this->_dw_dbg, &cies, &cie_count, &fdes, &fde_count, &dw_error);
+        if (status == DW_DLV_ERROR) {
+            const char *error_msg = dwarf_errmsg(dw_error);
+            throw std::runtime_error("Failed to retrieve CIEs and FDEs from FRAME: " + std::string(error_msg));
+        }
+
         for (int i = 0; i < cie_count; i++) {
-            _debugCies.push_back(dwarf::Cie(cies[i]));
+            _debugCies.push_back(std::shared_ptr<dwarf::Cie>(new dwarf::Cie(cies[i])));
         }
         _debugCiesRaw = cies;
         for (int i = 0; i < fde_count; i++) {
-            _debugFdes.push_back(dwarf::Fde(fdes[i]));
+
+            _debugFdes.push_back(std::shared_ptr<dwarf::Fde>(new dwarf::Fde(fdes[i])));
         }
         _debugFdesRaw = fdes;
 
-        dwarf_get_fde_list_eh(this->_dw_dbg, &cies, &cie_count, &fdes, &fde_count, &dw_error);
+        status = dwarf_get_fde_list_eh(this->_dw_dbg, &cies, &cie_count, &fdes, &fde_count, &dw_error);
+        if (status == DW_DLV_ERROR) {
+            const char *error_msg = dwarf_errmsg(dw_error);
+            throw std::runtime_error("Failed to retrieve CIEs and FDEs from EH_FRAME: " + std::string(error_msg));
+        }
         for (int i = 0; i < cie_count; i++) {
-            _debugHeCies.push_back(dwarf::Cie(cies[i]));
+            _debugHeCies.push_back(std::shared_ptr<dwarf::Cie>(new dwarf::Cie(cies[i])));
         }
         _debugHeCiesRaw = cies;
         for (int i = 0; i < fde_count; i++) {
-            _debugHeFdes.push_back(dwarf::Fde(fdes[i]));
+            _debugHeFdes.push_back(std::shared_ptr<dwarf::Fde>(new dwarf::Fde(fdes[i])));
         }
+        NotificationManager::getInstance().addNotification(Notification(std::format("Loading eh frame {}", fde_count)));
         _debugHeFdesRaw = fdes;
     }
 
@@ -187,8 +202,7 @@ namespace ELF {
         Dwarf_Ptr dw_errarg{};
         Dwarf_Error dw_error{};
 
-        if (dwarf_init_b(this->_fd, 0, dw_errhand, dw_errarg, &_dw_dbg, &dw_error) !=
-            DW_DLV_OK) {
+        if (dwarf_init_b(this->_fd, 0, dw_errhand, dw_errarg, &_dw_dbg, &dw_error) != DW_DLV_OK) {
             return;
         }
         _readCU();
@@ -209,7 +223,7 @@ namespace ELF {
             nullptr, this->_fileStat.st_size, PROT_READ, MAP_PRIVATE, this->_fd, 0));
     }
 
-    ExecutableFile::ExecutableFile(std::filesystem::path path) : _path(path), _fd(-1), _fileStat(0), _ehdr({}) {
+    ExecutableFile::ExecutableFile(std::filesystem::path path) : _path(path), _fd(-1), _fileStat(), _ehdr({}) {
         if (!std::filesystem::exists(path)) {
             throw std::runtime_error("File not found");
         }
@@ -245,18 +259,36 @@ namespace ELF {
         }
     }
 
-    dwarf::Fde ExecutableFile::getFdeAtPc(long rip) {
+    std::shared_ptr<dwarf::Fde> ExecutableFile::getFdeAtPc(long rip) {
         for (auto& fde: this->_debugFdes) {
-            if (fde.containsAddress(rip)) {
+            if (fde->containsAddress(rip)) {
                 return fde;
             }
         }
         for (auto& fde: this->_debugHeFdes) {
-            if (fde.containsAddress(rip)) {
+            if (fde->containsAddress(rip)) {
                 return fde;
             }
         }
-        throw std::runtime_error("FDE not found for the given address");
+        throw std::runtime_error(FMT("FDE not found at the address: 0x{:x}", rip));
+    }
+
+    std::shared_ptr<dwarf::Die> ExecutableFile::getDieAtPc(long rip) {
+        NotificationManager::getInstance().addNotification(Notification(FMT("Searching DIE at the address: 0x{:x}", rip)));
+        try {
+            auto die = searchTree<std::shared_ptr<dwarf::Die>>(_debugTree,
+                [rip](std::shared_ptr<dwarf::Die> diePtr) {
+                    auto dieSubprogram = std::dynamic_pointer_cast<dwarf::DieSubprogram>(diePtr);
+                    if (!dieSubprogram)
+                        return false;
+                    auto lowPC = dieSubprogram->getLowPC();
+                    auto highPC = dieSubprogram->getHighPC();
+                    return lowPC <= rip && rip < highPC;
+                });
+            return die;
+        } catch (const std::runtime_error& e) {
+            throw std::runtime_error(FMT("DIE not found at the address: 0x{:x}", rip));
+        }
     }
 
     Section ExecutableFile::getSectionByName(std::string name) {

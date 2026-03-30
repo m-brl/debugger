@@ -1,41 +1,227 @@
-==320886== Memcheck, a memory error detector
-==320886== Copyright (C) 2002-2024, and GNU GPL'd, by Julian Seward et al.
-==320886== Using Valgrind-3.25.1 and LibVEX; rerun with -h for copyright info
-==320886== Command: ./cmake-build-debug/debugger prog/cprog
-==320886== 
-==320886== Invalid read of size 4
-==320886==    at 0x402C6A0: Process::getStacktrace() (src/Process.cpp:357)
-==320886==    by 0x4051D82: display::CursesDisplay::_handleCommand() (src/display/Curses.cpp:182)
-==320886==    by 0x4053467: display::CursesDisplay::_readStdin() (src/display/Curses.cpp:286)
-==320886==    by 0x4053EEB: display::CursesDisplay::tick() (src/display/Curses.cpp:351)
-==320886==    by 0x40093AC: main (src/main.cpp:77)
-==320886==  Address 0x40fb4f4 is not stack'd, malloc'd or (recently) free'd
-==320886== 
-==320886== 
-==320886== Process terminating with default action of signal 11 (SIGSEGV): dumping core
-==320886==  Access not within mapped region at address 0x40FB4F4
-==320886==    at 0x402C6A0: Process::getStacktrace() (src/Process.cpp:357)
-==320886==    by 0x4051D82: display::CursesDisplay::_handleCommand() (src/display/Curses.cpp:182)
-==320886==    by 0x4053467: display::CursesDisplay::_readStdin() (src/display/Curses.cpp:286)
-==320886==    by 0x4053EEB: display::CursesDisplay::tick() (src/display/Curses.cpp:351)
-==320886==    by 0x40093AC: main (src/main.cpp:77)
-==320886==  If you believe this happened as a result of a stack
-==320886==  overflow in your program's main thread (unlikely but
-==320886==  possible), you can try to increase the size of the
-==320886==  main thread stack using the --main-stacksize= flag.
-==320886==  The main thread stack size used in this run was 8388608.
-==320886== 
-==320886== HEAP SUMMARY:
-==320886==     in use at exit: 2,080,993 bytes in 1,300 blocks
-==320886==   total heap usage: 7,940 allocs, 6,640 frees, 3,041,878 bytes allocated
-==320886== 
-==320886== LEAK SUMMARY:
-==320886==    definitely lost: 0 bytes in 0 blocks
-==320886==    indirectly lost: 0 bytes in 0 blocks
-==320886==      possibly lost: 151,467 bytes in 727 blocks
-==320886==    still reachable: 1,929,526 bytes in 573 blocks
-==320886==         suppressed: 0 bytes in 0 blocks
-==320886== Rerun with --leak-check=full to see details of leaked memory
-==320886== 
-==320886== For lists of detected and suppressed errors, rerun with: -s
-==320886== ERROR SUMMARY: 1 errors from 1 contexts (suppressed: 0 from 0)
+==943766== Memcheck, a memory error detector
+==943766== Copyright (C) 2002-2024, and GNU GPL'd, by Julian Seward et al.
+==943766== Using Valgrind-3.26.0 and LibVEX; rerun with -h for copyright info
+==943766== Command: ./cmake-build-debug/debugger prog/cprog
+==943766== 
+==943766== Conditional jump or move depends on uninitialised value(s)
+==943766==    at 0x48A24FC: calloc (in /nix/store/vqcf9grlks4b5h2j3ggxil4yaqs6jipw-valgrind-3.26.0/libexec/valgrind/vgpreload_memcheck-amd64-linux.so)
+==943766==    by 0x494E2CF: _dwarf_initialize_fde_table (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4952C02: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Conditional jump or move depends on uninitialised value(s)
+==943766==    at 0x494E2DC: _dwarf_initialize_fde_table (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4952C02: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Conditional jump or move depends on uninitialised value(s)
+==943766==    at 0x494E329: _dwarf_initialize_fde_table (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4952C02: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Conditional jump or move depends on uninitialised value(s)
+==943766==    at 0x48A24FC: calloc (in /nix/store/vqcf9grlks4b5h2j3ggxil4yaqs6jipw-valgrind-3.26.0/libexec/valgrind/vgpreload_memcheck-amd64-linux.so)
+==943766==    by 0x4952C24: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Conditional jump or move depends on uninitialised value(s)
+==943766==    at 0x494EB93: _dwarf_exec_frame_instr (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4951F43: _dwarf_get_fde_info_for_a_pc_row (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4952C7A: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Conditional jump or move depends on uninitialised value(s)
+==943766==    at 0x48A9763: memmove (in /nix/store/vqcf9grlks4b5h2j3ggxil4yaqs6jipw-valgrind-3.26.0/libexec/valgrind/vgpreload_memcheck-amd64-linux.so)
+==943766==    by 0x494EBB4: _dwarf_exec_frame_instr (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4951F43: _dwarf_get_fde_info_for_a_pc_row (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4952C7A: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Conditional jump or move depends on uninitialised value(s)
+==943766==    at 0x48A9B93: memmove (in /nix/store/vqcf9grlks4b5h2j3ggxil4yaqs6jipw-valgrind-3.26.0/libexec/valgrind/vgpreload_memcheck-amd64-linux.so)
+==943766==    by 0x494EBB4: _dwarf_exec_frame_instr (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4951F43: _dwarf_get_fde_info_for_a_pc_row (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4952C7A: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Conditional jump or move depends on uninitialised value(s)
+==943766==    at 0x48A992D: memmove (in /nix/store/vqcf9grlks4b5h2j3ggxil4yaqs6jipw-valgrind-3.26.0/libexec/valgrind/vgpreload_memcheck-amd64-linux.so)
+==943766==    by 0x494EBB4: _dwarf_exec_frame_instr (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4951F43: _dwarf_get_fde_info_for_a_pc_row (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4952C7A: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Conditional jump or move depends on uninitialised value(s)
+==943766==    at 0x4952C97: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Conditional jump or move depends on uninitialised value(s)
+==943766==    at 0x4952CF9: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Conditional jump or move depends on uninitialised value(s)
+==943766==    at 0x4952D09: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Conditional jump or move depends on uninitialised value(s)
+==943766==    at 0x4952D21: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Use of uninitialised value of size 8
+==943766==    at 0x4952D59: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Conditional jump or move depends on uninitialised value(s)
+==943766==    at 0x4952E56: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Conditional jump or move depends on uninitialised value(s)
+==943766==    at 0x4952E60: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Use of uninitialised value of size 8
+==943766==    at 0x4952E86: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Use of uninitialised value of size 8
+==943766==    at 0x4952E8E: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Conditional jump or move depends on uninitialised value(s)
+==943766==    at 0x4952EB5: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Conditional jump or move depends on uninitialised value(s)
+==943766==    at 0x4952EC0: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== Use of uninitialised value of size 8
+==943766==    at 0x4952F14: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== 
+==943766== Process terminating with default action of signal 11 (SIGSEGV): dumping core
+==943766==  Bad permissions for mapped region at address 0x4DA6848
+==943766==    at 0x4952F14: dwarf_get_fde_info_for_all_regs3_b (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x4953024: dwarf_get_fde_info_for_all_regs3 (in /nix/store/dv8rpr8v2b563yhkbbghrrjdp9fbds2h-libdwarf-2.2.0-lib/lib/libdwarf.so.2.2.0)
+==943766==    by 0x402749B: Process::getStacktrace() (Process.cpp:361)
+==943766==    by 0x403B09E: display::CursesDisplay::_handleCommand() (Curses.cpp:182)
+==943766==    by 0x403C347: display::CursesDisplay::_readStdin() (Curses.cpp:290)
+==943766==    by 0x403C4C6: display::CursesDisplay::tick() (Curses.cpp:355)
+==943766==    by 0x400BF47: main (main.cpp:77)
+==943766== 
+==943766== HEAP SUMMARY:
+==943766==     in use at exit: 6,711,900 bytes in 3,561 blocks
+==943766==   total heap usage: 10,493 allocs, 6,932 frees, 9,439,479 bytes allocated
+==943766== 
+==943766== LEAK SUMMARY:
+==943766==    definitely lost: 0 bytes in 0 blocks
+==943766==    indirectly lost: 0 bytes in 0 blocks
+==943766==      possibly lost: 962,498 bytes in 1,684 blocks
+==943766==    still reachable: 5,749,402 bytes in 1,877 blocks
+==943766==         suppressed: 0 bytes in 0 blocks
+==943766== Rerun with --leak-check=full to see details of leaked memory
+==943766== 
+==943766== Use --track-origins=yes to see where uninitialised values come from
+==943766== For lists of detected and suppressed errors, rerun with: -s
+==943766== ERROR SUMMARY: 41160 errors from 20 contexts (suppressed: 0 from 0)

@@ -56,6 +56,8 @@ namespace dwarf {
             Dwarf_Unsigned getLineNumber();
     };
 
+    class Die;
+
     class Cie {
         protected:
             Dwarf_Cie _cie;
@@ -94,6 +96,7 @@ namespace dwarf {
             Dwarf_Die _die;
             std::optional<Dwarf_Half> _cachedTag;
             std::optional<Dwarf_Addr> _cachedLowPC;
+            std::optional<Dwarf_Addr> _cachedHighPC;
 
         public:
             explicit Die(Dwarf_Die die) : _die(die) {}
@@ -112,11 +115,16 @@ namespace dwarf {
     };
 
     class DieSubprogram : public Die {
+        private:
+            std::optional<std::string> _cachedSubprogramName;
+            std::optional<Dwarf_Addr> _cachedHighPC;
+
         public:
             explicit DieSubprogram(Dwarf_Die die) : Die(die) {}
             ~DieSubprogram() = default;
 
             std::string getSubprogramName();
+            Dwarf_Addr getHighPC();
     };
 
 

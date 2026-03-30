@@ -18,13 +18,13 @@ void AddressMap::_parseMapsLine(std::string line) {
 
     // Parsing permissions
     if (tokens[1][0] == 'r')
-        SET_FLAG(address.perms, BIT4);
+        address.perms = SET_FLAG(address.perms, BIT4);
     if (tokens[1][1] == 'w')
-        SET_FLAG(address.perms, BIT3);
+        address.perms = SET_FLAG(address.perms, BIT3);
     if (tokens[1][2] == 'x')
-        SET_FLAG(address.perms, BIT2);
+        address.perms = SET_FLAG(address.perms, BIT2);
     if (tokens[1][3] == 'p')
-        SET_FLAG(address.perms, BIT1);
+        address.perms = SET_FLAG(address.perms, BIT1);
 
     // Parsing offset
     std::sscanf(tokens[2].c_str(), "%lx", &address.offset);
@@ -61,7 +61,6 @@ void AddressMap::_loadMapsFile() {
 
     if (!file.is_open()) {
         throw std::runtime_error(std::format("Failed to open {}", path.string()));
-        return;
     }
     while (!file.eof()) {
         std::string line;

@@ -182,8 +182,9 @@ namespace display {
             auto stacktrace = ContextManager::getInstance().getCurrentProcess()->getStacktrace();
 
             for (auto fde: stacktrace) {
-                auto file = process->getAddressMap().getFile(fde.getLowPC());
-                _log.push_back(std::format("0x{:x} - 0x{:x})", fde.getLowPC(), fde.getHighPC()));
+                auto file = process->getAddressMap().getFile(fde->getLowPC());
+                auto die = file->getDieAtPc(fde->getLowPC());
+                _log.push_back(std::format("{}", die->getTagName()));
             }
 
             return;
@@ -253,6 +254,10 @@ namespace display {
                 address = std::stoul(args[0], nullptr, 16);
             } else {
                 auto file = process->getAddressMap().getExeFile();
+                if (!file) {
+                    _log.push_back("No executable file loaded");
+                    return;
+                }
                 ELF::Symbol symbol = file->getSymbolByName(args[0]);
                 if (symbol.sym->st_value != 0)
                     address = symbol.sym->st_value;
