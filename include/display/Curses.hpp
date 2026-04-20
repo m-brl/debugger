@@ -44,6 +44,9 @@ namespace display {
             void _refresh();
             void _display();
 
+            void _addLog(std::string log);
+            void _addLog(std::vector<std::string> log);
+
             std::vector<std::string> _longTextBuffer;
             std::vector<std::string>::iterator _longTextBufferIt;
 
@@ -55,6 +58,7 @@ namespace display {
 
             void _handleCommand();
             void _readStdin();
+
 
         public:
             CursesDisplay();

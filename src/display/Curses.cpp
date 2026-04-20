@@ -2,6 +2,7 @@
 #include "ContextManager.hpp"
 #include "Command.hpp"
 #include "Notification.hpp"
+#include "utils.hpp"
 
 #include <sstream>
 #include <sys/ptrace.h>
@@ -41,6 +42,8 @@ namespace display {
         }
     }
 
+
+
     void CursesDisplay::_clear() {
         wclear(_mainWindow);
     }
@@ -55,12 +58,13 @@ namespace display {
         // Display file
         _displayBox(0, 0, COLS, 41, "File");
         if (!HAS_FLAG(currentProcess->getStatus(), IS_TRACE_RUNNING)) {
-            unsigned long rip = ptrace(PTRACE_PEEKUSER, currentProcess->getPid(), 8 * RIP, NULL);
-            unsigned long relativeAddress = currentProcess->getAddressMap().getRelativeAddress(rip);
 
             try {
+                unsigned long rip = ptrace(PTRACE_PEEKUSER, currentProcess->getPid(), 8 * RIP, NULL);
+                unsigned long rrip = currentProcess->getAddressMap().getRelativeAddress(rip);
+
                 auto file = currentProcess->getAddressMap().getFile(rip);
-                LineLocation lineLocation = file->getLineLocation(relativeAddress);
+                LineLocation lineLocation = file->getLineLocation(rrip);
                 std::size_t first = std::max(1, static_cast<int>(lineLocation.lineNumber) - 20);
 
                 for (std::size_t i = 0; i < 40; i++) {
@@ -107,6 +111,30 @@ namespace display {
             }
         }
     }
+
+
+
+
+    void CursesDisplay::_addLog(std::string log) {
+        _log.push_back(log);
+    }
+
+    void CursesDisplay::_addLog(std::vector<std::string> log) {
+        bool resetIt = _longTextBufferIt == _longTextBuffer.end();
+        if (log.size() > 3) {
+            for (auto tmp: log) {
+                _longTextBuffer.push_back(tmp);
+            }
+            if (resetIt) {
+                _longTextBufferIt = _longTextBuffer.begin();
+            }
+        } else {
+            for (auto tmp: log) {
+                _log.push_back(tmp);
+            }
+        }
+    }
+
 
     void CursesDisplay::_handleCommand() {
         std::istringstream iss(_input);
@@ -173,12 +201,17 @@ namespace display {
         }
         if (command == "symbols") {
             auto file = process->getAddressMap().getExeFile();
-            _log.push_back("Symbols of " + file->getPath().string() + ":");
-            for (auto& symbol : file->getSymbols()) {
-                if (symbol.sym->st_value == 0)
-                    continue;
-                _log.push_back(std::format("0x{:x} {} ({:x})", symbol.sym->st_value, file->getSymbolName(symbol), symbol.relocatedAddress));
-            }
+            _addLog(text(file->getSymbols(), [&](const auto& symbol) {
+                return std::format("0x{:x} {} ({:x})", symbol.sym->st_value, file->getSymbolName(symbol), symbol.relocatedAddress);
+            }));
+        }
+        if (command == "fdes") {
+            _addLog(text(process->getAddressMap().getExeFile()->getDebugFdes(), [](const std::shared_ptr<dwarf::Fde>& fde) {
+                return std::format("0x{:x}-0x{:x}", fde->getLowPC(), fde->getHighPC());
+            }));
+            _addLog(text(process->getAddressMap().getExeFile()->getDebugHeFdes(), [](const std::shared_ptr<dwarf::Fde>& fde) {
+                return std::format("0x{:x}-0x{:x}", fde->getLowPC(), fde->getHighPC());
+            }));
         }
         if (command == "frame") {
             unsigned long rip = ptrace(PTRACE_PEEKUSER, process->getPid(), 8 * RIP, NULL);
@@ -268,10 +301,9 @@ namespace display {
         }
 
         if (command == "maps") {
-            for (auto& address: process->getAddressMap().getAddresses()) {
-                _longTextBuffer.push_back(std::format("0x{:x}-0x{:x} {}", address.start, address.end, address.pathname));
-            }
-            _longTextBufferIt = _longTextBuffer.begin();
+            _addLog(text(process->getAddressMap().getAddresses(), [](const AddressMap::Address& address) {
+                return std::format("0x{:x}-0x{:x} {}", address.start, address.end, address.pathname);
+            }));
         }
 
         if (command == "break") {
@@ -328,6 +360,7 @@ namespace display {
         }
 
         if (ch == 10) {
+            _log.push_back("> " + _input);
             try {
                 _handleCommand();
             } catch (const std::exception& e) {
@@ -398,6 +431,10 @@ namespace display {
         _readStdin();
         _fetchNotifications();
 
+        if (_longTextBufferIt == _longTextBuffer.end()) {
+            _longTextBuffer.clear();
+            _longTextBufferIt = _longTextBuffer.end();
+        }
         if (!_pendingConfirmation) {
             _pendingConfirmation = CommandManager::getInstance().getNextConfirmation();
         }

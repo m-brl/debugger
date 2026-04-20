@@ -84,7 +84,6 @@ AddressMap::AddressMap(std::filesystem::path exePath, pid_t pid) : _pid(pid), _e
 
 Elf64_Addr AddressMap::getRelativeAddress(Elf64_Addr addr) const {
     for (const auto& [start, address]: this->_addresses) {
-        std::cerr << std::format("Checking address: 0x{:x}-0x{:x} for 0x{:x} {} ({:x})\n", address.start, address.end, addr, address.pathname, addr - address.start);
         if (addr >= address.start && addr < address.end) {
             return addr - address.start + address.offset;
         }

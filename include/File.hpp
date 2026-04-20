@@ -106,6 +106,11 @@ namespace ELF {
         Symbol getSymbolByName(std::string name);
 
         // Dwarf
+        auto getDebugCies() const { return _debugCies; }
+        auto getDebugFdes() const { return _debugFdes; }
+        auto getDebugHeCies() const { return _debugHeCies; }
+        auto getDebugHeFdes() const { return _debugHeFdes; }
+
         Dwarf_Addr getSymbolAddress(std::string name);
         Dwarf_Debug getDwarfDebug() const { return _dw_dbg; }
         std::shared_ptr<dwarf::Fde> getFdeAtPc(long rip);
