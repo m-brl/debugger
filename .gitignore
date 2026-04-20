@@ -1,3 +1,37 @@
+### IDE ###
+.gdbinit
+.obsidian
+compile_flags.txt
+*.lock
+.idea
+.vs
+
+### Python ###
+__pycache__
+
+### Valgrind ###
+vgcore.*
+
+### PROJECT ###
+
+# Secrets
+note
+.envrc
+
+# Test files
+*.gcda
+*.gcno
+*.gcov
+
+# CMake
+
+tags
+.cache
+build
+cmake-build-debug
+cmake-build-release
+cmake-build-windows
+
 # Prerequisites
 *.d
 
