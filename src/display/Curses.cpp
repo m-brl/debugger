@@ -56,10 +56,11 @@ namespace display {
         _displayBox(0, 0, COLS, 41, "File");
         if (!HAS_FLAG(currentProcess->getStatus(), IS_TRACE_RUNNING)) {
             unsigned long rip = ptrace(PTRACE_PEEKUSER, currentProcess->getPid(), 8 * RIP, NULL);
+            unsigned long relativeAddress = currentProcess->getAddressMap().getRelativeAddress(rip);
 
             try {
                 auto file = currentProcess->getAddressMap().getFile(rip);
-                LineLocation lineLocation = file->getLineLocation(rip);
+                LineLocation lineLocation = file->getLineLocation(relativeAddress);
                 std::size_t first = std::max(1, static_cast<int>(lineLocation.lineNumber) - 20);
 
                 for (std::size_t i = 0; i < 40; i++) {
@@ -98,7 +99,7 @@ namespace display {
                 mvwprintw(_mainWindow, LINES - 3 - i, 1, "%s", it->c_str());
             }
             if (_longTextBufferIt != _longTextBuffer.end()) {
-                mvprintw(LINES - 2, 1, "CONTINUE");
+                mvprintw(LINES - 2, 1, "more...");
             } else if (_pendingConfirmation) {
                 mvprintw(LINES - 2, 1, "Are you sure do you want to %s (y/n)", _pendingConfirmation->getDescription().c_str());
             } else {
@@ -218,6 +219,7 @@ namespace display {
                 _log.push_back(std::format("RIP: 0x{:x} (unknown)", rip));
             }
             unsigned long relativeAddress = process->getAddressMap().getRelativeAddress(rip);
+            _log.push_back(std::format("Relative address pre: 0x{:x}", relativeAddress));
 
             std::shared_ptr<dwarf::Line> matchedLine = nullptr;
 
@@ -226,7 +228,7 @@ namespace display {
                 unsigned long fileOffset = 0;
 
                 for (auto ph: file->getProgramByType(PT_LOAD)) {
-                    if (ph.header->p_vaddr <= rip && rip < ph.header->p_vaddr + ph.header->p_memsz) {
+                    if (ph.header->p_vaddr <= relativeAddress && relativeAddress < ph.header->p_vaddr + ph.header->p_memsz) {
                         fileOffset = relativeAddress - ph.header->p_vaddr + ph.header->p_offset;
                         break;
                     }
@@ -256,6 +258,7 @@ namespace display {
             ContextManager::getInstance().getCurrentProcess()->clearStdoutBuffer();
             ContextManager::getInstance().getCurrentProcess()->clearStderrBuffer();
         }
+
         if (command == "status") {
             auto status = process->getStatus();
             _log.push_back(std::format("Process status: {}{}",
@@ -263,12 +266,14 @@ namespace display {
                 HAS_FLAG(status, IS_TRACE_RUNNING) ? "Running " : ""
             ));
         }
+
         if (command == "maps") {
             for (auto& address: process->getAddressMap().getAddresses()) {
                 _longTextBuffer.push_back(std::format("0x{:x}-0x{:x} {}", address.start, address.end, address.pathname));
             }
             _longTextBufferIt = _longTextBuffer.begin();
         }
+
         if (command == "break") {
             if (args.size() < 1) {
                 _log.push_back("Usage: break <address>");
@@ -315,7 +320,7 @@ namespace display {
         }
 
         if (_longTextBufferIt != _longTextBuffer.end()) {
-            if (ch == 10) {
+            if (ch == 10 || ch == 'n') {
                 _log.push_back(*_longTextBufferIt);
                 _longTextBufferIt++;
                 return;
