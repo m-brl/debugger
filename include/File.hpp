@@ -13,6 +13,7 @@
 #include <libdwarf.h>
 #include <sys/stat.h>
 #include <vector>
+#include <ranges>
 
 namespace ELF {
     union Elf_Ehdr {
@@ -20,7 +21,14 @@ namespace ELF {
         Elf64_Ehdr *elf64_ehdr;
     };
 
-    struct Section {
+    struct ProgramHeader {
+        Elf64_Off headerOff;
+        Elf64_Phdr *header;
+        Elf64_Off contentOff;
+        char *content;
+    };
+
+    struct SectionHeader {
         Elf64_Off headerOff;
         Elf64_Shdr *header;
         Elf64_Off contentOff;
@@ -30,7 +38,7 @@ namespace ELF {
     struct Symbol {
         Elf64_Off offset;
         Elf64_Sym *sym;
-        Section section;
+        SectionHeader section;
         Elf64_Addr relocatedAddress;
     };
 
@@ -41,7 +49,8 @@ namespace ELF {
         struct stat _fileStat;
         Elf_Ehdr _ehdr;
 
-        std::vector<Section> _sections;
+        std::vector<ProgramHeader> _programs;
+        std::vector<SectionHeader> _sections;
         std::vector<Symbol> _symbols;
 
         Dwarf_Debug _dw_dbg;
@@ -66,6 +75,7 @@ namespace ELF {
 
         // ELF parsing
         void _parseSymbols();
+        void _parsePrograms();
         void _parseSections();
         void _parseFile();
         void _openFile();
@@ -77,11 +87,20 @@ namespace ELF {
         std::filesystem::path getPath() const { return _path; }
 
         // ELF
-        std::vector<Symbol> getSymbols() const {
-            std::cerr << "Getting symbols, count: " << _symbols.size() << std::endl;
-            return _symbols; }
-        Section getSectionByName(std::string name);
-        Section getSectionByType(Elf64_Word type);
+        std::vector<Symbol> getSymbols() const { return _symbols; }
+
+        auto getProgramByType(Elf64_Word type) {
+            auto data = this->_programs | std::views::filter([type](const ProgramHeader& program) {
+                    return program.header->p_type == type;
+                    });
+            if (data.empty()) {
+                throw std::runtime_error("Program not found");
+            }
+            return data;
+        }
+
+        SectionHeader getSectionByName(std::string name);
+        SectionHeader getSectionByType(Elf64_Word type);
         Symbol getSymbolByOffset(Elf64_Off offset);
         std::string getSymbolName(Symbol symbol);
         Symbol getSymbolByName(std::string name);

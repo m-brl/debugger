@@ -9,12 +9,19 @@
 #include "utils.hpp"
 
 void AddressMap::_parseMapsLine(std::string line) {
+    if (line.at(line.size() - 1) == '\n') {
+        line.pop_back();
+    }
     auto tokens = split(line, ' ');
 
     Address address{};
 
     // Parsing addresses
     std::sscanf(tokens[0].c_str(), "%lx-%lx", &address.start, &address.end);
+
+    if (_addresses.contains(address.start)) {
+        return;
+    }
 
     // Parsing permissions
     if (tokens[1][0] == 'r')
@@ -52,7 +59,7 @@ void AddressMap::_parseMapsLine(std::string line) {
         }
     }
 
-    _addresses.push_back(address);
+    _addresses.insert({address.start, address});
 }
 
 void AddressMap::_loadMapsFile() {
@@ -75,9 +82,28 @@ AddressMap::AddressMap(std::filesystem::path exePath, pid_t pid) : _pid(pid), _e
     this->_loadMapsFile();
 }
 
-AddressMap::Address AddressMap::getAddress(Elf64_Addr addr) const {
-    for (const auto& address: this->_addresses) {
+Elf64_Addr AddressMap::getRelativeAddress(Elf64_Addr addr) const {
+    for (const auto& [start, address]: this->_addresses) {
+        std::cerr << std::format("Checking address: 0x{:x}-0x{:x} for 0x{:x}\n", address.start, address.end, addr);
         if (addr >= address.start && addr < address.end) {
+            return addr - address.start;
+        }
+    }
+    throw std::runtime_error("Address not found (r)");
+}
+
+AddressMap::Address AddressMap::getAddress(Elf64_Addr addr) const {
+    for (const auto& [start, address]: this->_addresses) {
+        if (addr >= address.start && addr < address.end) {
+            return address;
+        }
+    }
+    throw std::runtime_error("Address not found");
+}
+
+AddressMap::Address AddressMap::getAddress(std::string pathname) const {
+    for (const auto& [start, address]: this->_addresses) {
+        if (address.pathname == pathname) {
             return address;
         }
     }

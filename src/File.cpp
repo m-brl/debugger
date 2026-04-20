@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <ranges>
 #include <fstream>
 #include <iostream>
 #include <dwarf.h>
@@ -18,7 +19,7 @@
 namespace ELF {
     void ExecutableFile::_parseSymbols() {
         try {
-            Section symtab = this->getSectionByType(SHT_SYMTAB);
+            SectionHeader symtab = this->getSectionByType(SHT_SYMTAB);
             Elf64_Off offset = 0;
             while (offset < symtab.header->sh_size) {
                 this->_symbols.emplace_back(symtab.header->sh_offset + offset, reinterpret_cast<Elf64_Sym *>(this->_ehdr.buffer + symtab.header->sh_offset + offset), symtab);
@@ -29,9 +30,9 @@ namespace ELF {
         }
 
         try {
-            Section dynsym = this->getSectionByType(SHT_DYNSYM);
-            Section reladyn = this->getSectionByName(".rela.plt");
-            Section plt = this->getSectionByName(".plt");
+            SectionHeader dynsym = this->getSectionByType(SHT_DYNSYM);
+            SectionHeader reladyn = this->getSectionByName(".rela.plt");
+            SectionHeader plt = this->getSectionByName(".plt");
 
             int relocationIndex = 0;
             for (Elf64_Off relOffset = 0; relOffset < reladyn.header->sh_size; relOffset += sizeof(Elf64_Rela), relocationIndex++) {
@@ -49,13 +50,23 @@ namespace ELF {
         }
     }
 
+    void ExecutableFile::_parsePrograms() {
+        for (int programIndex = 0; programIndex < this->_ehdr.elf64_ehdr->e_phnum; programIndex++) {
+            ProgramHeader program{};
+
+            program.headerOff = this->_ehdr.elf64_ehdr->e_shoff + (programIndex * sizeof(Elf64_Phdr));
+            program.header = reinterpret_cast<Elf64_Phdr *>(this->_ehdr.buffer + program.headerOff);
+            program.contentOff = program.header->p_offset;
+            program.content = this->_ehdr.buffer + program.contentOff;
+            this->_programs.push_back(program);
+        }
+    }
+
     void ExecutableFile::_parseSections() {
         for (int sectionIndex = 0; sectionIndex < this->_ehdr.elf64_ehdr->e_shnum; sectionIndex++) {
-            Section section{};
-            section.headerOff =
-                this->_ehdr.elf64_ehdr->e_shoff + (sectionIndex * sizeof(Elf64_Shdr));
-            section.header =
-                reinterpret_cast<Elf64_Shdr *>(this->_ehdr.buffer + section.headerOff);
+            SectionHeader section{};
+            section.headerOff = this->_ehdr.elf64_ehdr->e_shoff + (sectionIndex * sizeof(Elf64_Shdr));
+            section.header = reinterpret_cast<Elf64_Shdr *>(this->_ehdr.buffer + section.headerOff);
             section.contentOff = section.header->sh_offset;
             section.content = this->_ehdr.buffer + section.contentOff;
             this->_sections.push_back(section);
@@ -210,6 +221,7 @@ namespace ELF {
     }
 
     void ExecutableFile::_parseFile() {
+        this->_parsePrograms();
         this->_parseSections();
         this->_parseSymbols();
         this->_parseDebug();
@@ -291,7 +303,17 @@ namespace ELF {
         }
     }
 
-    Section ExecutableFile::getSectionByName(std::string name) {
+    /*auto ExecutableFile::getProgramByType(Elf64_Word type) {
+        auto data = this->_programs | std::views::filter([type](const ProgramHeader& program) {
+            return program.header->p_type == type;
+        });
+        if (data.empty()) {
+            throw std::runtime_error("Program not found");
+        }
+        return data;
+    }*/
+
+    SectionHeader ExecutableFile::getSectionByName(std::string name) {
         for (auto& section: this->_sections) {
             char *sectionName =
                 this->_sections[this->_ehdr.elf64_ehdr->e_shstrndx].content +
@@ -303,7 +325,7 @@ namespace ELF {
         throw std::runtime_error("Section not found");
     }
 
-    Section ExecutableFile::getSectionByType(Elf64_Word type) {
+    SectionHeader ExecutableFile::getSectionByType(Elf64_Word type) {
         for (auto& section: this->_sections) {
             if (section.header->sh_type == type) {
                 return section;
@@ -323,7 +345,7 @@ namespace ELF {
 
     std::string ExecutableFile::getSymbolName(Symbol symbol) {
         auto linkSectionIndex = symbol.section.header->sh_link;
-        Section strtab = this->_sections[linkSectionIndex];
+        SectionHeader strtab = this->_sections[linkSectionIndex];
         char *symbolName = strtab.content + symbol.sym->st_name;
         return std::string(symbolName);
     }

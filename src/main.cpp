@@ -73,7 +73,11 @@ int main(int ac, char **av) {
     initDisplay();
 
     while (IS_RUNNING) {
-        CommandManager::getInstance().execute();
+        try {
+            CommandManager::getInstance().execute();
+        } catch (const std::exception& e) {
+            NotificationManager::getInstance().addNotification(Notification(std::string("Error while executing command: ") + e.what()));
+        }
         DISPLAY_MANAGER.getDisplayInterface()->tick();
         auto ptr = process.get();
         ptr->tick();

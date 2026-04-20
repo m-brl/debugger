@@ -22,9 +22,9 @@ void CommandManager::addConfirmationCommand(std::shared_ptr<ICommand> command) {
 void CommandManager::execute() {
     while (!_commandQueue.empty()) {
         std::shared_ptr<ICommand> command = _commandQueue.front();
-        command->execute();
         _undoStack.push(command);
         _commandQueue.pop();
+        command->execute();
     }
 }
 

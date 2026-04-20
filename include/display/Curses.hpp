@@ -44,6 +44,9 @@ namespace display {
             void _refresh();
             void _display();
 
+            std::vector<std::string> _longTextBuffer;
+            std::vector<std::string>::iterator _longTextBufferIt;
+
             std::shared_ptr<ICommand> _pendingConfirmation;
             std::vector<std::string> _log;
             std::vector<std::string> _inputHistory;

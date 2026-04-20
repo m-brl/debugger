@@ -13,6 +13,8 @@
 #include <sys/user.h>
 #include <sys/reg.h>
 
+char *envp[] = { "LD_BIND_NOW=1", nullptr };
+
 void Process::_getProcessStatus(pid_t pid) {
     int status = 0;
     pid_t result = waitpid(pid, &status, WNOHANG | WUNTRACED);
@@ -125,7 +127,7 @@ void Process::launch() {
         close(_stderrPipe[1]);
 
         raise(SIGSTOP);
-        execve(program.c_str(), argv, nullptr);
+        execve(program.c_str(), argv, envp);
         exit(127);
     }
     close(_stdinPipe[0]);
@@ -152,8 +154,12 @@ void Process::launch() {
            PTRACE_O_EXITKILL | PTRACE_O_TRACECLONE | PTRACE_O_TRACEEXEC |
                PTRACE_O_TRACEEXIT | PTRACE_O_TRACESYSGOOD);
     ptrace(PTRACE_CONT, _pid, NULL, NULL);
-    waitpid(_pid, nullptr, WUNTRACED);
-    _addressMap = AddressMap(program, _pid);
+
+    int status = 0;
+    waitpid(_pid, &status, WUNTRACED);
+    if ((status >> 8) == (SIGTRAP | (PTRACE_EVENT_EXEC << 8))) {
+        _addressMap = AddressMap(program, _pid);
+    }
 
     _status = SET_FLAG(_status, IS_TRACE_STARTED);
 }

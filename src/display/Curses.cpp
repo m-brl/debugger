@@ -97,7 +97,9 @@ namespace display {
                 }
                 mvwprintw(_mainWindow, LINES - 3 - i, 1, "%s", it->c_str());
             }
-            if (_pendingConfirmation) {
+            if (_longTextBufferIt != _longTextBuffer.end()) {
+                mvprintw(LINES - 2, 1, "CONTINUE");
+            } else if (_pendingConfirmation) {
                 mvprintw(LINES - 2, 1, "Are you sure do you want to %s (y/n)", _pendingConfirmation->getDescription().c_str());
             } else {
                 mvwprintw(_mainWindow, LINES - 2, 1, "> %s", _input.c_str());
@@ -135,7 +137,7 @@ namespace display {
             _log.push_back("Unknown display type: " + args[0]);
             return;
         }
-        if (command == "quit") {
+        if (command == "quit" || command == "exit") {
             auto quitCommand = std::make_shared<QuitCommand>(IS_RUNNING);
             CommandManager::getInstance().addConfirmationCommand(quitCommand);
             return;
@@ -200,6 +202,11 @@ namespace display {
             return;
         }
 
+        if (command == "reload") {
+            process->getAddressMap().reload();
+            _log.push_back("Address map reloaded");
+        }
+
         if (command == "rip") {
             auto pid = process->getPid();
             unsigned long rip = ptrace(PTRACE_PEEKUSER, pid, 8 * RIP, NULL);
@@ -210,11 +217,23 @@ namespace display {
             } catch (const std::exception& e) {
                 _log.push_back(std::format("RIP: 0x{:x} (unknown)", rip));
             }
+            unsigned long relativeAddress = process->getAddressMap().getRelativeAddress(rip);
 
             std::shared_ptr<dwarf::Line> matchedLine = nullptr;
 
             try {
                 auto file = process->getAddressMap().getFile(rip);
+                unsigned long fileOffset = 0;
+
+                for (auto ph: file->getProgramByType(PT_LOAD)) {
+                    if (ph.header->p_vaddr <= rip && rip < ph.header->p_vaddr + ph.header->p_memsz) {
+                        fileOffset = relativeAddress - ph.header->p_vaddr + ph.header->p_offset;
+                        break;
+                    }
+                }
+                _log.push_back(std::format("Relative address: 0x{:x}", relativeAddress));
+                _log.push_back(std::format("File offset: 0x{:x}", fileOffset));
+                auto address = process->getAddressMap().getAddress(rip);
                 for (auto& line : file->getDebugLines()) {
                     if (line->getAddress() > rip) {
                         break;
@@ -244,6 +263,12 @@ namespace display {
                 HAS_FLAG(status, IS_TRACE_RUNNING) ? "Running " : ""
             ));
         }
+        if (command == "maps") {
+            for (auto& address: process->getAddressMap().getAddresses()) {
+                _longTextBuffer.push_back(std::format("0x{:x}-0x{:x} {}", address.start, address.end, address.pathname));
+            }
+            _longTextBufferIt = _longTextBuffer.begin();
+        }
         if (command == "break") {
             if (args.size() < 1) {
                 _log.push_back("Usage: break <address>");
@@ -264,6 +289,9 @@ namespace display {
                 else {
                     address = symbol.relocatedAddress;
                 }
+
+                AddressMap::Address addr = process->getAddressMap().getAddress(file->getPath().string());
+                address += (addr.start);
             }
             std::shared_ptr<ICommand> command = std::shared_ptr<ICommand>(new AddBreakpointCommand(*process, {process->getPid(), address}));
             CommandManager::getInstance().addCommand(command);
@@ -286,6 +314,14 @@ namespace display {
             return;
         }
 
+        if (_longTextBufferIt != _longTextBuffer.end()) {
+            if (ch == 10) {
+                _log.push_back(*_longTextBufferIt);
+                _longTextBufferIt++;
+                return;
+            }
+        }
+
         if (ch == 10) {
             try {
                 _handleCommand();
@@ -297,6 +333,7 @@ namespace display {
             _input.clear();
             return;
         }
+
         if (ch == 127) {
             if (!_input.empty()) {
                 _input.pop_back();
