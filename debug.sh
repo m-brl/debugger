@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-cmake --preset=debug .
-cmake --build cmake-build-debug
+cmake --preset=DefaultDebug .
+cmake --build cmake-build-debug -- -j 8
