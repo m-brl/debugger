@@ -338,7 +338,6 @@ std::vector<std::shared_ptr<dwarf::Fde>> Process::getStacktrace() {
 
     unsigned long rip = ptrace(PTRACE_PEEKUSER, _pid, 8 * RIP, NULL);
     unsigned long rrip = getAddressMap().getRelativeAddress(rip);
-    std::cerr << std::format("RIP: 0x{:x}, RRIP: 0x{:x}", rip, rrip) << std::endl;
 
     auto fde = getAddressMap().getFile(rip)->getFdeAtPc(rrip);
     stacktrace.push_back(fde);
@@ -382,24 +381,29 @@ std::vector<std::shared_ptr<dwarf::Fde>> Process::getStacktrace() {
 
 
         // Fetching return address
-        if (dwarf_get_fde_info_for_reg3_c(fde->getFde(), 16, rrip, &dw_value_type, &dw_offset_relevant, &dw_register, &dw_offset, &dw_block_content, &dw_row_pc_out, &dw_has_more_rows, &dw_subsequent_pc, &error) != DW_DLV_OK) {
-            break;
-        }
-        if (dw_value_type == DW_EXPR_OFFSET) {
-            long returnAddress = cfa + dw_offset;
-            rip = ptrace(PTRACE_PEEKDATA, _pid, returnAddress, NULL);
-            if (rip == 0 || rip == -1) {
+        try {
+            if (dwarf_get_fde_info_for_reg3_c(fde->getFde(), 16, rrip, &dw_value_type, &dw_offset_relevant, &dw_register, &dw_offset, &dw_block_content, &dw_row_pc_out, &dw_has_more_rows, &dw_subsequent_pc, &error) != DW_DLV_OK) {
                 break;
             }
+            if (dw_value_type == DW_EXPR_OFFSET) {
+                long returnAddress = cfa + dw_offset;
+                rip = ptrace(PTRACE_PEEKDATA, _pid, returnAddress, NULL);
+                unsigned long rrip = getAddressMap().getRelativeAddress(rip);
+                if (rip == 0 || rip == -1) {
+                    break;
+                }
 
-            try {
-                fde = getAddressMap().getFile(rip)->getFdeAtPc(rrip);
-                stacktrace.push_back(fde);
-            } catch (const std::exception& e) {
+                try {
+                    fde = getAddressMap().getFile(rip)->getFdeAtPc(rrip);
+                    stacktrace.push_back(fde);
+                } catch (const std::exception& e) {
+                    break;
+                }
+            } else {
+                NotificationManager::getInstance().addNotification(Notification("Not handled yet"));
                 break;
             }
-        } else {
-            NotificationManager::getInstance().addNotification(Notification("Not handled yet"));
+        } catch (const std::exception& e) {
             break;
         }
 

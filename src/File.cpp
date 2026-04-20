@@ -54,7 +54,7 @@ namespace ELF {
         for (int programIndex = 0; programIndex < this->_ehdr.elf64_ehdr->e_phnum; programIndex++) {
             ProgramHeader program{};
 
-            program.headerOff = this->_ehdr.elf64_ehdr->e_shoff + (programIndex * sizeof(Elf64_Phdr));
+            program.headerOff = this->_ehdr.elf64_ehdr->e_phoff + (programIndex * sizeof(Elf64_Phdr));
             program.header = reinterpret_cast<Elf64_Phdr *>(this->_ehdr.buffer + program.headerOff);
             program.contentOff = program.header->p_offset;
             program.content = this->_ehdr.buffer + program.contentOff;

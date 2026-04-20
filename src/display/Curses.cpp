@@ -320,6 +320,7 @@ namespace display {
                     _log.push_back("No executable file loaded");
                     return;
                 }
+                AddressMap::Address addrLine = process->getAddressMap().getAddress(file->getPath().string());
                 ELF::Symbol symbol = file->getSymbolByName(args[0]);
                 if (symbol.sym->st_value != 0)
                     address = symbol.sym->st_value;
@@ -327,8 +328,16 @@ namespace display {
                     address = symbol.relocatedAddress;
                 }
 
-                AddressMap::Address addr = process->getAddressMap().getAddress(file->getPath().string());
-                address += (addr.start);
+                unsigned long fileOffset = 0;
+
+                for (auto ph: file->getProgramByType(PT_LOAD)) {
+                    if (ph.header->p_vaddr <= address && address < ph.header->p_vaddr + ph.header->p_memsz) {
+                        fileOffset = address - ph.header->p_vaddr + ph.header->p_offset;
+                        break;
+                    }
+                }
+                address = fileOffset + addrLine.start;
+
             }
             std::shared_ptr<ICommand> command = std::shared_ptr<ICommand>(new AddBreakpointCommand(*process, {process->getPid(), address}));
             CommandManager::getInstance().addCommand(command);
