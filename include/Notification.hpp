@@ -6,6 +6,7 @@
 #include <queue>
 #include <string>
 
+/*
 class Notification {
     private:
         std::string _message;
@@ -37,3 +38,4 @@ class NotificationManager {
         Notification getNextNotification();
         bool hasNotification() const;
 };
+*/

@@ -1,7 +1,6 @@
 #include "Process.hpp"
 #include "ContextManager.hpp"
 #include "Logger.hpp"
-#include "Notification.hpp"
 #include "Command.hpp"
 
 #include <cstring>
@@ -26,23 +25,23 @@ void Process::_getProcessStatus(pid_t pid) {
         _status = CLEAR_FLAG(_status, IS_TRACE_STARTED);
 
         int exitCode = WEXITSTATUS(status);
-        Notification notification(std::format("Process exited with code: {} ({})", exitCode, status));
-        NotificationManager::getInstance().addNotification(notification);
+        //Notification notification(std::format("Process exited with code: {} ({})", exitCode, status));
+        //NotificationManager::getInstance().addNotification(notification);
     }
 
     if (WIFSIGNALED(status)) {
         _status = CLEAR_FLAG(_status, IS_TRACE_STARTED);
 
         int signum = WTERMSIG(status);
-        Notification notification(std::format("Process terminated by signal: {} ({})", signum, strsignal(signum)));
-        NotificationManager::getInstance().addNotification(notification);
+        //Notification notification(std::format("Process terminated by signal: {} ({})", signum, strsignal(signum)));
+        //NotificationManager::getInstance().addNotification(notification);
     }
 
     if ((status >> 8) == (SIGTRAP | (PTRACE_EVENT_CLONE << 8))) {
         int tid;
         ptrace(PTRACE_GETEVENTMSG, pid, NULL, &tid);
-        Notification notification(std::format("New thread (LWP {})", tid));
-        NotificationManager::getInstance().addNotification(notification);
+        //Notification notification(std::format("New thread (LWP {})", tid));
+        //NotificationManager::getInstance().addNotification(notification);
 
         _threadPids.push_back(tid);
 
@@ -51,8 +50,8 @@ void Process::_getProcessStatus(pid_t pid) {
     }
 
     if ((status >> 8) == (SIGTRAP | (PTRACE_EVENT_EXIT << 8))) {
-        Notification notification(std::format("Thread (LWP {}) is exiting", pid));
-        NotificationManager::getInstance().addNotification(notification);
+        //Notification notification(std::format("Thread (LWP {}) is exiting", pid));
+        //NotificationManager::getInstance().addNotification(notification);
         std::erase(_threadPids, pid);
     }
 
@@ -61,8 +60,8 @@ void Process::_getProcessStatus(pid_t pid) {
 
         int signum = WSTOPSIG(status);
         if (signum == SIGTRAP) {
-            Notification notification("Process hit a breakpoint (SIGTRAP).");
-            NotificationManager::getInstance().addNotification(notification);
+            //Notification notification("Process hit a breakpoint (SIGTRAP).");
+            //NotificationManager::getInstance().addNotification(notification);
             long rip = ptrace(PTRACE_PEEKUSER, _pid, 8 * RIP, NULL);
             for (auto& bp : _breakpoints) {
                 if (bp.getAddress() == rip - 1) {
@@ -72,8 +71,8 @@ void Process::_getProcessStatus(pid_t pid) {
             }
             return;
         }
-        Notification notification(std::format("Process stopped by signal: {} ({})", signum, strsignal(signum)));
-        NotificationManager::getInstance().addNotification(notification);
+        //Notification notification(std::format("Process stopped by signal: {} ({})", signum, strsignal(signum)));
+        //NotificationManager::getInstance().addNotification(notification);
     }
 }
 
@@ -365,18 +364,15 @@ std::vector<std::shared_ptr<dwarf::Fde>> Process::getStacktrace() {
             case DW_DLV_OK:
                 break;
             case DW_DLV_NO_ENTRY:
-                NotificationManager::getInstance().addNotification(Notification("No entry for this frame"));
                 return stacktrace;
             case DW_DLV_ERROR:
-                const char *error_msg = dwarf_errmsg(error);
-                NotificationManager::getInstance().addNotification(Notification("Error while retrieving frame information for register: " + std::string(error_msg)));
                 return stacktrace;
         }
         if (dw_value_type == DW_EXPR_OFFSET) {
             long reg = ptrace(PTRACE_PEEKUSER, _pid, 8 * RegMapTable[dw_register].processorRegNum, NULL);
             cfa = reg + dw_offset;
         } else {
-            NotificationManager::getInstance().addNotification(Notification("Not handled yet"));
+            // TODO handle
         }
 
 
@@ -400,7 +396,7 @@ std::vector<std::shared_ptr<dwarf::Fde>> Process::getStacktrace() {
                     break;
                 }
             } else {
-                NotificationManager::getInstance().addNotification(Notification("Not handled yet"));
+                // TODO handle
                 break;
             }
         } catch (const std::exception& e) {

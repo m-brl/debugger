@@ -1,7 +1,6 @@
 #include "display/Curses.hpp"
 #include "ContextManager.hpp"
 #include "Command.hpp"
-#include "Notification.hpp"
 #include "utils.hpp"
 
 #include <sstream>
@@ -32,13 +31,6 @@ namespace display {
             }
             mvwprintw(_mainWindow, y, startX + 1, "%s", line.c_str());
             y++;
-        }
-    }
-
-    void CursesDisplay::_fetchNotifications() {
-        auto& notificationManager = NotificationManager::getInstance();
-        while (notificationManager.hasNotification()) {
-            _log.push_back(notificationManager.getNextNotification().what());
         }
     }
 
@@ -438,7 +430,6 @@ namespace display {
         last = now;
 
         _readStdin();
-        _fetchNotifications();
 
         if (_longTextBufferIt == _longTextBuffer.end()) {
             _longTextBuffer.clear();

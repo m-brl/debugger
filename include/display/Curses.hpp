@@ -38,7 +38,6 @@ namespace display {
             std::shared_ptr<SourceFile> _currentSourceFile;
 
             void _displayBox(int startX, int startY, int width, int height, std::string title, std::vector<std::string> content = {});
-            void _fetchNotifications();
 
             void _clear();
             void _refresh();

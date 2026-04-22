@@ -20,7 +20,6 @@ set(SOURCE_FILE
     src/Dwarf.cpp
     src/Logger.cpp
     src/AddressMap.cpp
-    src/Notification.cpp
 
     src/display/Curses.cpp
 

@@ -1,5 +1,6 @@
 #include "Notification.hpp"
 
+/*
 std::shared_ptr<NotificationManager> NotificationManager::_instance;
 std::mutex NotificationManager::_instanceMutex;
 
@@ -24,3 +25,4 @@ Notification NotificationManager::getNextNotification() {
 bool NotificationManager::hasNotification() const {
     return !_eventQueue.empty();
 }
+*/

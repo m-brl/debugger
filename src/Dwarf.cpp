@@ -1,5 +1,4 @@
 #include "Dwarf.hpp"
-#include "Notification.hpp"
 #include "Logger.hpp"
 #include <iostream>
 #include <stdexcept>
@@ -126,7 +125,6 @@ namespace dwarf {
         }
         Dwarf_Addr high_pc{};
         dwarf_formaddr(attr_high_pc, &high_pc, &dw_error);
-        NotificationManager::getInstance().addNotification(Notification(FMT("Retrieving high PC for subprogram {} (0x{:x})", this->getSubprogramName(), high_pc)));
         this->_cachedHighPC = high_pc;
         return high_pc;
     }

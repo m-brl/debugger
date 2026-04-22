@@ -20,7 +20,6 @@
 #include "File.hpp"
 #include "utils.hpp"
 #include "Command.hpp"
-#include "Notification.hpp"
 
 #include "display/Curses.hpp"
 #include "display/DisplayManager.hpp"
@@ -31,7 +30,6 @@ void sighandler(int signum) {
     switch (signum) {
         case SIGINT:
             {
-                NotificationManager::getInstance().addNotification(Notification("SIGINT received, pausing execution..."));
                 auto pauseCommand = std::make_shared<PauseCommand>(*ContextManager::getInstance().getCurrentProcess());
                 CommandManager::getInstance().addCommand(pauseCommand);
             }
@@ -76,7 +74,6 @@ int main(int ac, char **av) {
         try {
             CommandManager::getInstance().execute();
         } catch (const std::exception& e) {
-            NotificationManager::getInstance().addNotification(Notification(std::string("Error while executing command: ") + e.what()));
         }
         DISPLAY_MANAGER.getDisplayInterface()->tick();
         auto ptr = process.get();

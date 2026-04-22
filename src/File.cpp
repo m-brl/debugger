@@ -1,7 +1,6 @@
 #include "File.hpp"
 #include "constant.h"
 #include "utils/Tree.hpp"
-#include "Notification.hpp"
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -163,7 +162,6 @@ namespace ELF {
         for (int i = 0; i < fde_count; i++) {
             _debugHeFdes.push_back(std::shared_ptr<dwarf::Fde>(new dwarf::Fde(fdes[i])));
         }
-        NotificationManager::getInstance().addNotification(Notification(std::format("Loading eh frame {}", fde_count)));
         _debugHeFdesRaw = fdes;
     }
 
@@ -286,7 +284,6 @@ namespace ELF {
     }
 
     std::shared_ptr<dwarf::Die> ExecutableFile::getDieAtPc(long rip) {
-        NotificationManager::getInstance().addNotification(Notification(FMT("Searching DIE at the address: 0x{:x}", rip)));
         try {
             auto die = searchTree<std::shared_ptr<dwarf::Die>>(_debugTree,
                 [rip](std::shared_ptr<dwarf::Die> diePtr) {
