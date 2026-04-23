@@ -1,7 +1,7 @@
 #include "Process.hpp"
 #include "ContextManager.hpp"
 #include "Logger.hpp"
-#include "Command.hpp"
+#include "command/Command.hpp"
 
 #include <cstring>
 #include <fstream>
@@ -11,8 +11,6 @@
 #include <sys/wait.h>
 #include <sys/user.h>
 #include <sys/reg.h>
-
-char *envp[] = { "LD_BIND_NOW=1", nullptr };
 
 void Process::_getProcessStatus(pid_t pid) {
     int status = 0;
@@ -126,7 +124,7 @@ void Process::launch() {
         close(_stderrPipe[1]);
 
         raise(SIGSTOP);
-        execve(program.c_str(), argv, envp);
+        execve(program.c_str(), argv, nullptr);
         exit(127);
     }
     close(_stdinPipe[0]);
@@ -239,8 +237,8 @@ void Process::next() {
 
     if ((instruction & 0xFF) == 0xE8) {
         unsigned long nextInstruction = instruction + 5;
-        std::shared_ptr<ICommand> command = std::shared_ptr<ICommand>(new AddBreakpointCommand(*this, {_pid, nextInstruction}));
-        CommandManager::getInstance().addCommand(command);
+        auto command = std::shared_ptr<command::ICommand>(new command::AddBreakpointCommand(*this, {_pid, nextInstruction}));
+        //CommandManager::getInstance().addCommand(command);
         ptrace(PTRACE_CONT, _pid, NULL, NULL);
     } else {
         ptrace(PTRACE_SINGLESTEP, _pid, NULL, NULL);

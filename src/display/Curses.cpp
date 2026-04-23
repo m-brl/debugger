@@ -1,6 +1,5 @@
 #include "display/Curses.hpp"
 #include "ContextManager.hpp"
-#include "Command.hpp"
 #include "utils.hpp"
 
 #include <sstream>
@@ -169,24 +168,24 @@ namespace display {
             return;
         }
         if (command == "quit" || command == "exit") {
-            auto quitCommand = std::make_shared<QuitCommand>(IS_RUNNING);
-            CommandManager::getInstance().addConfirmationCommand(quitCommand);
+            auto quitCommand = std::make_shared<command::QuitCommand>(IS_RUNNING);
+            _commandManager->addConfirmationCommand(quitCommand);
             return;
         }
         if (command == "continue") {
-            auto continueCommand = std::make_shared<ContinueCommand>(*ContextManager::getInstance().getCurrentProcess());
-            CommandManager::getInstance().addCommand(continueCommand);
+            auto continueCommand = std::make_shared<command::ContinueCommand>(*ContextManager::getInstance().getCurrentProcess());
+            _commandManager->addCommand(continueCommand);
             _log.push_back("Continuing...");
             return;
         }
         if (command == "step") {
-            auto stepCommand = std::make_shared<StepCommand>(*ContextManager::getInstance().getCurrentProcess());
-            CommandManager::getInstance().addCommand(stepCommand);
+            auto stepCommand = std::make_shared<command::StepCommand>(*ContextManager::getInstance().getCurrentProcess());
+            _commandManager->addCommand(stepCommand);
             return;
         }
         if (command == "next") {
-            auto nextCommand = std::make_shared<NextCommand>(*ContextManager::getInstance().getCurrentProcess());
-            CommandManager::getInstance().addCommand(nextCommand);
+            auto nextCommand = std::make_shared<command::NextCommand>(*ContextManager::getInstance().getCurrentProcess());
+            _commandManager->addCommand(nextCommand);
             return;
         }
         if (command == "pid") {
@@ -354,8 +353,8 @@ namespace display {
                 address = fileOffset + addrLine.start;
 
             }
-            std::shared_ptr<ICommand> command = std::shared_ptr<ICommand>(new AddBreakpointCommand(*process, {process->getPid(), address}));
-            CommandManager::getInstance().addCommand(command);
+            auto command = std::shared_ptr<command::ICommand>(new command::AddBreakpointCommand(*process, {process->getPid(), address}));
+            _commandManager->addCommand(command);
             _log.push_back(std::format("Breakpoint added at 0x{:x}", address));
         }
 
@@ -369,7 +368,7 @@ namespace display {
 
         if (_pendingConfirmation) {
             if (ch == 'y' || ch == 'Y') {
-                CommandManager::getInstance().addCommand(_pendingConfirmation);
+                _commandManager->addCommand(_pendingConfirmation);
             }
             _pendingConfirmation = nullptr;
             return;
@@ -431,7 +430,7 @@ namespace display {
         _input.push_back(ch);
     }
 
-    CursesDisplay::CursesDisplay() : _mainWindow(nullptr), _inputHistoryIt(_inputHistory.end()) {
+    CursesDisplay::CursesDisplay(std::shared_ptr<command::CommandManager> commandManager) : _commandManager(commandManager), _mainWindow(nullptr), _inputHistoryIt(_inputHistory.end()) {
 
     }
 
@@ -459,7 +458,7 @@ namespace display {
             _longTextBufferIt = _longTextBuffer.end();
         }
         if (!_pendingConfirmation) {
-            _pendingConfirmation = CommandManager::getInstance().getNextConfirmation();
+            _pendingConfirmation = _commandManager->getNextConfirmation();
         }
 
         _clear();

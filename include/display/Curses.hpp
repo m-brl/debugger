@@ -2,10 +2,11 @@
 
 #include "SourceFile.hpp"
 #include "display/IDisplayInterface.hpp"
+#include "command/Command.hpp"
+#include "command/CommandManager.hpp"
 
 #include <curses.h>
 #include <memory>
-#include "Command.hpp"
 #include <string>
 #include <vector>
 #include <map>
@@ -28,6 +29,8 @@ extern bool IS_RUNNING;
 namespace display {
     class CursesDisplay : public IDisplayInterface {
         private:
+            std::shared_ptr<command::CommandManager> _commandManager;
+
             enum DisplayType {
                 FILE_VIEW,
                 HEXADUMP_VIEW
@@ -50,7 +53,7 @@ namespace display {
             std::vector<std::string> _longTextBuffer;
             std::vector<std::string>::iterator _longTextBufferIt;
 
-            std::shared_ptr<ICommand> _pendingConfirmation;
+            std::shared_ptr<command::ICommand> _pendingConfirmation;
             std::vector<std::string> _log;
             std::vector<std::string> _inputHistory;
             std::vector<std::string>::iterator _inputHistoryIt;
@@ -61,7 +64,7 @@ namespace display {
 
 
         public:
-            CursesDisplay();
+            CursesDisplay(std::shared_ptr<command::CommandManager> commandManager);
             ~CursesDisplay();
 
             void init() override;
