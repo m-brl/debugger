@@ -17,7 +17,7 @@
 #include "AddressMap.hpp"
 #include "ContextManager.hpp"
 #include "Process.hpp"
-#include "File.hpp"
+#include "ExecutableFile.hpp"
 #include "utils.hpp"
 #include "Command.hpp"
 

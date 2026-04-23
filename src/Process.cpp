@@ -338,8 +338,9 @@ std::vector<std::shared_ptr<dwarf::Fde>> Process::getStacktrace() {
     unsigned long rip = ptrace(PTRACE_PEEKUSER, _pid, 8 * RIP, NULL);
     unsigned long rrip = getAddressMap().getRelativeAddress(rip);
 
-    auto fde = getAddressMap().getFile(rip)->getFdeAtPc(rrip);
-    stacktrace.push_back(fde);
+    auto fde = getAddressMap().getFile(rip)->getDwarfFile()->getFdeAtPc(rrip);
+    if (!fde.has_value()) { return stacktrace; }
+    stacktrace.push_back(fde.value());
     long cfa = 0;
 
     Dwarf_Small dw_value_type;
@@ -359,7 +360,7 @@ std::vector<std::shared_ptr<dwarf::Fde>> Process::getStacktrace() {
 
     while (dw_has_more_rows && i-- > 0) {
         // Fetching CFA
-        int status = dwarf_get_fde_info_for_cfa_reg3_c(fde->getFde(), rrip, &dw_value_type, &dw_offset_relevant, &dw_register, &dw_offset, &dw_block_content, &dw_row_pc_out, &dw_has_more_rows, &dw_subsequent_pc, &error);
+        int status = dwarf_get_fde_info_for_cfa_reg3_c(fde.value()->getFde(), rrip, &dw_value_type, &dw_offset_relevant, &dw_register, &dw_offset, &dw_block_content, &dw_row_pc_out, &dw_has_more_rows, &dw_subsequent_pc, &error);
         switch (status) {
             case DW_DLV_OK:
                 break;
@@ -378,7 +379,7 @@ std::vector<std::shared_ptr<dwarf::Fde>> Process::getStacktrace() {
 
         // Fetching return address
         try {
-            if (dwarf_get_fde_info_for_reg3_c(fde->getFde(), 16, rrip, &dw_value_type, &dw_offset_relevant, &dw_register, &dw_offset, &dw_block_content, &dw_row_pc_out, &dw_has_more_rows, &dw_subsequent_pc, &error) != DW_DLV_OK) {
+            if (dwarf_get_fde_info_for_reg3_c(fde.value()->getFde(), 16, rrip, &dw_value_type, &dw_offset_relevant, &dw_register, &dw_offset, &dw_block_content, &dw_row_pc_out, &dw_has_more_rows, &dw_subsequent_pc, &error) != DW_DLV_OK) {
                 break;
             }
             if (dw_value_type == DW_EXPR_OFFSET) {
@@ -390,8 +391,8 @@ std::vector<std::shared_ptr<dwarf::Fde>> Process::getStacktrace() {
                 }
 
                 try {
-                    fde = getAddressMap().getFile(rip)->getFdeAtPc(rrip);
-                    stacktrace.push_back(fde);
+                    fde = getAddressMap().getFile(rip)->getDwarfFile()->getFdeAtPc(rrip);
+                    stacktrace.push_back(fde.value());
                 } catch (const std::exception& e) {
                     break;
                 }

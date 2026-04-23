@@ -15,11 +15,13 @@ set(SOURCE_FILE
     src/Command.cpp
     src/utils.cpp
     src/Process.cpp
-    src/File.cpp
+    src/ExecutableFile.cpp
     src/SourceFile.cpp
-    src/Dwarf.cpp
     src/Logger.cpp
     src/AddressMap.cpp
+    src/dwarf/Dwarf.cpp
+    src/dwarf/DwarfFile.cpp
+    src/elf/ElfFile.cpp
 
     src/display/Curses.cpp
 

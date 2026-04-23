@@ -50,7 +50,7 @@ void AddressMap::_parseMapsLine(std::string line) {
     if (!address.pathname.empty() && address.pathname[0] != '[') {
         if (!_loadedFiles.contains(address.pathname)) {
             if (std::filesystem::exists(address.pathname)) {
-                auto file = std::make_shared<ELF::ExecutableFile>(address.pathname);
+                auto file = std::make_shared<ExecutableFile>(address.pathname);
                 _loadedFiles[address.pathname] = file;
                 if (std::filesystem::equivalent(address.pathname, _exePath.string())) {
                     _exeFile = file;
@@ -109,7 +109,7 @@ AddressMap::Address AddressMap::getAddress(std::string pathname) const {
     throw std::runtime_error("Address not found");
 }
 
-std::shared_ptr<ELF::ExecutableFile> AddressMap::getFile(Elf64_Addr saddress) const {
+std::shared_ptr<ExecutableFile> AddressMap::getFile(Elf64_Addr saddress) const {
     Address address = this->getAddress(saddress);
     if (_loadedFiles.contains(address.pathname)) {
         return _loadedFiles.at(address.pathname);
@@ -117,8 +117,8 @@ std::shared_ptr<ELF::ExecutableFile> AddressMap::getFile(Elf64_Addr saddress) co
     throw std::runtime_error("No loaded executable file found");
 }
 
-std::vector<std::shared_ptr<ELF::ExecutableFile>> AddressMap::getLoadedFiles() const {
-    std::vector<std::shared_ptr<ELF::ExecutableFile>> files;
+std::vector<std::shared_ptr<ExecutableFile>> AddressMap::getLoadedFiles() const {
+    std::vector<std::shared_ptr<ExecutableFile>> files;
     for (const auto& [path, file] : _loadedFiles) {
         files.push_back(file);
     }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <optional>
 #include <functional>
 #include <stdexcept>
 
@@ -11,16 +12,15 @@ struct Tree {
 };
 
 template <typename T>
-T& searchTree(Tree<T>& tree, std::function<bool(T&)> predicate) {
+std::optional<T> searchTree(Tree<T>& tree, std::function<bool(T&)> predicate) {
     if (predicate(tree.data)) {
         return tree.data;
     }
     for (auto& child : tree.children) {
-        try {
-            return searchTree(child, predicate);
-        } catch (const std::runtime_error&) {
-            continue;
+        auto result = searchTree(child, predicate);
+        if (result.has_value()) {
+            return result;
         }
     }
-    throw std::runtime_error("Element not found in tree");
+    return std::nullopt;
 }
