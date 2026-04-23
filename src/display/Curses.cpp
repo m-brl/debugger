@@ -44,35 +44,45 @@ namespace display {
         wrefresh(_mainWindow);
     }
 
-    void CursesDisplay::_display() {
+    void CursesDisplay::_displayFileView() {
         auto currentProcess = ContextManager::getInstance().getCurrentProcess();
 
         // Display file
         _displayBox(0, 0, COLS, 41, "File");
-        if (!HAS_FLAG(currentProcess->getStatus(), IS_TRACE_RUNNING)) {
-            Address rip = ptrace(PTRACE_PEEKUSER, currentProcess->getPid(), 8 * RIP, NULL);
-            Address rrip = currentProcess->getAddressMap().getRelativeAddress(rip);
-
-            auto file = currentProcess->getAddressMap().getFile(rip);
-            auto lineLocation = file->getDwarfFile()->getLineLocation(rrip);
-            if (!lineLocation.has_value()) {
-                std::size_t first = std::max(1, static_cast<int>(lineLocation->lineNumber) - 20);
-
-                for (std::size_t i = 0; i < 40; i++) {
-                    if (first + i > lineLocation->file->getlineCount()) {
-                        break;
-                    }
-                    mvprintw(1 + i, 2, "%s", lineLocation->file->getline(first + i).c_str());
-                }
-                mvprintw(1 + lineLocation->lineNumber - first, 1, ">");
-            } else {
-                mvprintw(1, 1, "Nothing to be displayed");
-            }
-
-
-        } else {
+        if (HAS_FLAG(currentProcess->getStatus(), IS_TRACE_RUNNING)) {
             mvwprintw(_mainWindow, 1, 1, "Running");
+            return;
         }
+
+        Address rip = ptrace(PTRACE_PEEKUSER, currentProcess->getPid(), 8 * RIP, NULL);
+        auto rrip = currentProcess->getAddressMap().getRelativeAddress(rip);
+
+        if (!rrip.has_value()) {
+            mvwprintw(_mainWindow, 1, 1, "RIP: 0x%lx (unknown)", rip);
+            return;
+        }
+
+        auto file = currentProcess->getAddressMap().getFile(rip);
+        auto lineLocation = file->getDwarfFile()->getLineLocation(*rrip);
+        if (lineLocation.has_value()) {
+            std::size_t first = std::max(1, static_cast<int>(lineLocation->lineNumber) - 20);
+
+            for (std::size_t i = 0; i < 40; i++) {
+                if (first + i > lineLocation->file->getlineCount()) {
+                    break;
+                }
+                mvprintw(1 + i, 2, "%s", lineLocation->file->getline(first + i).c_str());
+            }
+            mvprintw(1 + lineLocation->lineNumber - first, 1, ">");
+        } else {
+            mvprintw(1, 1, "Nothing to be displayed");
+        }
+    }
+
+    void CursesDisplay::_display() {
+        auto currentProcess = ContextManager::getInstance().getCurrentProcess();
+
+        _displayFileView();
 
         // Display stdout
         auto stdoutBuf = currentProcess->getStdoutBuffer();
@@ -246,8 +256,10 @@ namespace display {
             } catch (const std::exception& e) {
                 _log.push_back(std::format("RIP: 0x{:x} (unknown)", rip));
             }
-            unsigned long relativeAddress = process->getAddressMap().getRelativeAddress(rip);
-            _log.push_back(std::format("Relative address pre: 0x{:x}", relativeAddress));
+            auto rrip = process->getAddressMap().getRelativeAddress(rip);
+            if (!rrip.has_value()) {
+                return;
+            }
 
             std::shared_ptr<dwarf::Line> matchedLine = nullptr;
 
@@ -255,13 +267,13 @@ namespace display {
                 auto file = process->getAddressMap().getFile(rip);
                 unsigned long fileOffset = 0;
 
-                for (auto ph: file->getElfFile()->getProgramByType(PT_LOAD)) {
-                    if (ph.getHeader()->p_vaddr <= relativeAddress && relativeAddress < ph.getHeader()->p_vaddr + ph.getHeader()->p_memsz) {
-                        fileOffset = relativeAddress - ph.getHeader()->p_vaddr + ph.getHeader()->p_offset;
+                for (auto ph: file->getElfFile()->getSegmentsByType(PT_LOAD)) {
+                    if (ph.getHeader()->p_vaddr <= rrip.value() && rrip.value() < ph.getHeader()->p_vaddr + ph.getHeader()->p_memsz) {
+                        fileOffset = rrip.value() - ph.getHeader()->p_vaddr + ph.getHeader()->p_offset;
                         break;
                     }
                 }
-                _log.push_back(std::format("Relative address: 0x{:x}", relativeAddress));
+                _log.push_back(std::format("Relative address: 0x{:x}", rrip.value()));
                 _log.push_back(std::format("File offset: 0x{:x}", fileOffset));
                 auto address = process->getAddressMap().getAddress(rip);
                 for (auto& line : file->getDwarfFile()->getDebugLines()) {
@@ -296,17 +308,18 @@ namespace display {
         }
 
         if (command == "maps") {
-            _addLog(text(process->getAddressMap().getAddresses(), [](const AddressMap::Address& address) {
+            _addLog(text(process->getAddressMap().getAddresses(), [](const AddressMap::AddressEntry& address) {
                 return std::format("0x{:x}-0x{:x} {}", address.start, address.end, address.pathname);
             }));
         }
 
         if (command == "break") {
-            /*if (args.size() < 1) {
+            if (args.size() < 1) {
                 _log.push_back("Usage: break <address>");
                 return;
             }
-            Elf64_Addr address = 0;
+
+            Address address = 0;
             if (args[0].substr(0, 2) == "0x") {
                 address = std::stoul(args[0], nullptr, 16);
             } else {
@@ -315,19 +328,26 @@ namespace display {
                     _log.push_back("No executable file loaded");
                     return;
                 }
-                AddressMap::Address addrLine = process->getAddressMap().getAddress(file->getPath().string());
-                ELF::Symbol symbol = file->getSymbolByName(args[0]);
-                if (symbol.sym->st_value != 0)
+                AddressMap::AddressEntry addrLine = process->getAddressMap().getAddress(file->getPath().string());
+                auto symbol = file->getElfFile()->getSymbolByName(args[0]);
+                if (!symbol.has_value()) {
+                    _log.push_back("Symbol not found: " + args[0]);
+                    return;
+                }
+
+                address = symbol->getSym()->st_value;
+                /*if (symbol->getSym()->st_value != 0)
                     address = symbol.sym->st_value;
                 else {
                     address = symbol.relocatedAddress;
-                }
+                }*/
 
                 unsigned long fileOffset = 0;
 
-                for (auto ph: file->getProgramByType(PT_LOAD)) {
-                    if (ph.header->p_vaddr <= address && address < ph.header->p_vaddr + ph.header->p_memsz) {
-                        fileOffset = address - ph.header->p_vaddr + ph.header->p_offset;
+                for (auto ph: file->getElfFile()->getSegmentsByType(PT_LOAD)) {
+                    auto header = ph.getHeader();
+                    if (header->p_vaddr <= address && address < header->p_vaddr + header->p_memsz) {
+                        fileOffset = address - header->p_vaddr + header->p_offset;
                         break;
                     }
                 }
@@ -336,7 +356,7 @@ namespace display {
             }
             std::shared_ptr<ICommand> command = std::shared_ptr<ICommand>(new AddBreakpointCommand(*process, {process->getPid(), address}));
             CommandManager::getInstance().addCommand(command);
-            _log.push_back(std::format("Breakpoint added at 0x{:x}", address));*/
+            _log.push_back(std::format("Breakpoint added at 0x{:x}", address));
         }
 
     }

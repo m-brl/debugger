@@ -11,7 +11,7 @@
 
 class AddressMap {
 public:
-    struct Address {
+    struct AddressEntry {
         Elf64_Addr start;
         Elf64_Addr end;
         char perms;
@@ -24,7 +24,7 @@ public:
 private:
     pid_t _pid;
     std::filesystem::path _exePath;
-    std::unordered_map<Elf64_Addr, Address> _addresses;
+    std::unordered_map<Elf64_Addr, AddressEntry> _addresses;
     std::map<std::string, std::shared_ptr<ExecutableFile>> _loadedFiles;
     std::shared_ptr<ExecutableFile> _exeFile;
 
@@ -37,16 +37,16 @@ public:
 
     void reload() { this->_loadMapsFile(); }
 
-    Elf64_Addr getRelativeAddress(Elf64_Addr addr) const;
-    Address getAddress(Elf64_Addr addr) const;
-    Address getAddress(std::string pathname) const;
+    std::optional<Address> getRelativeAddress(Address addr) const;
+    AddressEntry getAddress(Elf64_Addr addr) const;
+    AddressEntry getAddress(std::string pathname) const;
 
     std::shared_ptr<ExecutableFile> getFile(Elf64_Addr) const;
     std::shared_ptr<ExecutableFile> getExeFile() const { return _exeFile; }
 
     std::vector<std::shared_ptr<ExecutableFile>> getLoadedFiles() const;
-    std::vector<Address> getAddresses() const {
-        std::vector<Address> addresses;
+    std::vector<AddressEntry> getAddresses() const {
+        std::vector<AddressEntry> addresses;
         for (const auto& [start, address]: this->_addresses) {
             addresses.push_back(address);
         }

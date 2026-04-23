@@ -14,7 +14,7 @@ void AddressMap::_parseMapsLine(std::string line) {
     }
     auto tokens = split(line, ' ');
 
-    Address address{};
+    AddressEntry address{};
 
     // Parsing addresses
     std::sscanf(tokens[0].c_str(), "%lx-%lx", &address.start, &address.end);
@@ -82,16 +82,16 @@ AddressMap::AddressMap(std::filesystem::path exePath, pid_t pid) : _pid(pid), _e
     this->_loadMapsFile();
 }
 
-Elf64_Addr AddressMap::getRelativeAddress(Elf64_Addr addr) const {
+std::optional<Address> AddressMap::getRelativeAddress(Address addr) const {
     for (const auto& [start, address]: this->_addresses) {
         if (addr >= address.start && addr < address.end) {
             return addr - address.start + address.offset;
         }
     }
-    throw std::runtime_error("Address not found (r)");
+    return std::nullopt;
 }
 
-AddressMap::Address AddressMap::getAddress(Elf64_Addr addr) const {
+AddressMap::AddressEntry AddressMap::getAddress(Elf64_Addr addr) const {
     for (const auto& [start, address]: this->_addresses) {
         if (addr >= address.start && addr < address.end) {
             return address;
@@ -100,7 +100,7 @@ AddressMap::Address AddressMap::getAddress(Elf64_Addr addr) const {
     throw std::runtime_error("Address not found");
 }
 
-AddressMap::Address AddressMap::getAddress(std::string pathname) const {
+AddressMap::AddressEntry AddressMap::getAddress(std::string pathname) const {
     for (const auto& [start, address]: this->_addresses) {
         if (address.pathname == pathname) {
             return address;
@@ -110,7 +110,7 @@ AddressMap::Address AddressMap::getAddress(std::string pathname) const {
 }
 
 std::shared_ptr<ExecutableFile> AddressMap::getFile(Elf64_Addr saddress) const {
-    Address address = this->getAddress(saddress);
+    AddressEntry address = this->getAddress(saddress);
     if (_loadedFiles.contains(address.pathname)) {
         return _loadedFiles.at(address.pathname);
     }

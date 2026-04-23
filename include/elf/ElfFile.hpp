@@ -43,7 +43,7 @@ namespace ELF {
             std::span<const Symbol> getSymbols() const { return _symbols; }
             std::span<const DynSymbol> getDynSymbols() const { return _dynSymbols; }
 
-            auto getProgramByType(Elf64_Word type) {
+            auto getSegmentsByType(Elf64_Word type) {
                 auto data = this->_segments | std::views::filter([type](const Segment& segment) {
                         return segment.getHeader()->p_type == type;
                         });
@@ -52,6 +52,15 @@ namespace ELF {
 
             std::optional<Section> getSectionByName(std::string name) {
                 return ELF::getSectionByName(_header, name);
+            }
+
+            std::optional<Symbol> getSymbolByName(std::string name) {
+                for (auto& symbol: _symbols) {
+                    if (symbol.getName().value_or("") == name) {
+                        return symbol;
+                    }
+                }
+                return std::nullopt;
             }
 
             std::optional<Section> getSectionByType(Elf64_Word type) {

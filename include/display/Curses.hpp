@@ -41,6 +41,7 @@ namespace display {
 
             void _clear();
             void _refresh();
+            void _displayFileView();
             void _display();
 
             void _addLog(std::string log);
