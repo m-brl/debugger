@@ -14,16 +14,11 @@
 #include <unistd.h>
 #include <thread>
 
-#include "AddressMap.hpp"
-#include "ContextManager.hpp"
 #include "Process.hpp"
-#include "ExecutableFile.hpp"
-#include "utils.hpp"
 #include "command/Command.hpp"
 #include "command/CommandManager.hpp"
 
 #include "display/Curses.hpp"
-#include "display/DisplayManager.hpp"
 
 bool IS_RUNNING = true;
 
@@ -43,9 +38,9 @@ void sighandler(int signum) {
     }
 }
 
-void sigcommand(std::shared_ptr<command::CommandManager> commandManager) {
+void sigcommand(std::shared_ptr<command::CommandManager> commandManager, std::shared_ptr<Process> process) {
     if (G_SIGINT_RECEIVED.exchange(false)) {
-        auto pauseCommand = std::make_shared<command::PauseCommand>(*ContextManager::getInstance().getCurrentProcess());
+        auto pauseCommand = std::make_shared<command::PauseCommand>(process);
         commandManager->addCommand(pauseCommand);
     }
 
@@ -53,12 +48,6 @@ void sigcommand(std::shared_ptr<command::CommandManager> commandManager) {
         auto quitCommand = std::make_shared<command::QuitCommand>(IS_RUNNING);
         commandManager->addConfirmationCommand(quitCommand);
     }
-}
-
-void initDisplay(std::shared_ptr<command::CommandManager> commandManager) {
-    std::shared_ptr<display::IDisplayInterface> cursesDisplay = std::shared_ptr<display::IDisplayInterface>(new display::CursesDisplay(commandManager));
-    cursesDisplay->init();
-    DISPLAY_MANAGER.setDisplayInterface(cursesDisplay);
 }
 
 #ifndef UNIT_TEST
@@ -74,17 +63,21 @@ int main(int ac, char **av) {
 
     auto commandManager = std::make_shared<command::CommandManager>();
 
+    auto cursesDisplay = std::make_shared<display::CursesDisplay>(commandManager);
+    cursesDisplay->init();
+
     auto process = std::make_shared<Process>();
     process->setArguments(std::vector<std::string>(av + 1, av + ac));
+    cursesDisplay->setProcess(process);
     process->launch();
-    ContextManager::getInstance().registerProcess(process);
-    ContextManager::getInstance().setCurrentProcess(process);
 
-    initDisplay(commandManager);
+    //ContextManager::getInstance().registerProcess(process);
+    //ContextManager::getInstance().setCurrentProcess(process);
 
     while (IS_RUNNING) {
+        sigcommand(commandManager, process);
         commandManager->execute();
-        DISPLAY_MANAGER.getDisplayInterface()->tick();
+        cursesDisplay->tick();
         auto ptr = process.get();
         ptr->tick();
     }

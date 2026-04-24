@@ -11,9 +11,11 @@
 #include <sys/wait.h>
 #include <sys/user.h>
 #include <sys/reg.h>
+#include <dwarf.h>
+#include <libdwarf.h>
 
 void Process::_getProcessStatus(pid_t pid) {
-    int status = 0;
+int status = 0;
     pid_t result = waitpid(pid, &status, WNOHANG | WUNTRACED);
     if (result == 0 || result == -1) {
         return;
@@ -237,7 +239,7 @@ void Process::next() {
 
     if ((instruction & 0xFF) == 0xE8) {
         unsigned long nextInstruction = instruction + 5;
-        auto command = std::shared_ptr<command::ICommand>(new command::AddBreakpointCommand(*this, {_pid, nextInstruction}));
+        //auto command = std::shared_ptr<command::ICommand>(new command::AddBreakpointCommand(this, {_pid, nextInstruction}));
         //CommandManager::getInstance().addCommand(command);
         ptrace(PTRACE_CONT, _pid, NULL, NULL);
     } else {
@@ -330,81 +332,140 @@ void Process::injectModule() {
     ptrace(PTRACE_POKETEXT, _pid, regs.rsp, path);
 }
 
-std::vector<std::shared_ptr<dwarf::Fde>> Process::getStacktrace() {
-    std::vector<std::shared_ptr<dwarf::Fde>> stacktrace;
+std::vector<StackFrame> Process::getStacktrace() {
+    std::vector<StackFrame> stacktrace;
 
-    Address rip = ptrace(PTRACE_PEEKUSER, _pid, 8 * RIP, NULL);
-    auto rrip = getAddressMap().getRelativeAddress(rip);
+    auto frame = getCurrentFrame();
+    if (!frame.has_value()) return stacktrace;
 
-    if (!rrip.has_value()) { return stacktrace; }
+    stacktrace.push_back(frame.value());
 
-    auto fde = getAddressMap().getFile(rip)->getDwarfFile()->getFdeAtPc(rrip.value());
-    if (!fde.has_value()) { return stacktrace; }
-    stacktrace.push_back(fde.value());
-    long cfa = 0;
-
-    Dwarf_Small dw_value_type;
-    Dwarf_Unsigned dw_offset_relevant;
-    Dwarf_Unsigned dw_register;
-    Dwarf_Signed dw_offset;
-    Dwarf_Block dw_block_content;
-    Dwarf_Addr dw_row_pc_out;
-    Dwarf_Bool dw_has_more_rows;
-    Dwarf_Addr dw_subsequent_pc;
-    Dwarf_Error error{};
-
-
-    dw_has_more_rows = true;
     int i = 5;
 
+    while (frame.value().pc != 0 && i-- > 0) {
+        auto callingFrame = getCallingFrame(frame.value());
+        if (!callingFrame.has_value()) break;
 
-    while (dw_has_more_rows && i-- > 0) {
-        // Fetching CFA
-        int status = dwarf_get_fde_info_for_cfa_reg3_c(fde.value()->getFde(), rrip.value(), &dw_value_type, &dw_offset_relevant, &dw_register, &dw_offset, &dw_block_content, &dw_row_pc_out, &dw_has_more_rows, &dw_subsequent_pc, &error);
-        switch (status) {
-            case DW_DLV_OK:
-                break;
-            case DW_DLV_NO_ENTRY:
-                return stacktrace;
-            case DW_DLV_ERROR:
-                return stacktrace;
-        }
-        if (dw_value_type == DW_EXPR_OFFSET) {
-            long reg = ptrace(PTRACE_PEEKUSER, _pid, 8 * RegMapTable[dw_register].processorRegNum, NULL);
-            cfa = reg + dw_offset;
-        } else {
-            // TODO handle
-        }
+        stacktrace.push_back(callingFrame.value());
+        frame = callingFrame;
 
-
-        // Fetching return address
-        try {
-            if (dwarf_get_fde_info_for_reg3_c(fde.value()->getFde(), 16, rrip.value(), &dw_value_type, &dw_offset_relevant, &dw_register, &dw_offset, &dw_block_content, &dw_row_pc_out, &dw_has_more_rows, &dw_subsequent_pc, &error) != DW_DLV_OK) {
-                break;
-            }
-            if (dw_value_type == DW_EXPR_OFFSET) {
-                long returnAddress = cfa + dw_offset;
-                rip = ptrace(PTRACE_PEEKDATA, _pid, returnAddress, NULL);
-                auto rrip = getAddressMap().getRelativeAddress(rip);
-                if (rip == 0 || rip == -1 || !rrip.has_value()) {
-                    break;
-                }
-
-                try {
-                    fde = getAddressMap().getFile(rip)->getDwarfFile()->getFdeAtPc(rrip.value());
-                    stacktrace.push_back(fde.value());
-                } catch (const std::exception& e) {
-                    break;
-                }
-            } else {
-                // TODO handle
-                break;
-            }
-        } catch (const std::exception& e) {
-            break;
-        }
-
+        if (!frame.has_value() || frame.value().pc == 0) break;
     }
 
     return stacktrace;
+}
+
+std::optional<StackFrame> Process::getFrame(Address pc, decltype(StackFrame::registers) regs) {
+    Address cfa = 0;
+
+    std::cerr << std::format("Getting frame for PC: {:#x}\n", pc);
+
+    auto staticAddress = getAddressMap().getStaticAddress(pc);
+    if (!staticAddress.has_value()) return std::nullopt;
+
+    auto file = getAddressMap().getFile(pc);
+    if (!file) return std::nullopt;
+
+    auto fde = file.value()->getDwarfFile()->getFdeAtPc(staticAddress.value());
+    if (!fde.has_value()) return std::nullopt;
+
+    auto cie = fde.value()->getCie();
+
+    { /* Get CFA */
+        Dwarf_Small dw_value_type;
+        Dwarf_Unsigned dw_offset_relevant;
+        Dwarf_Unsigned dw_register;
+        Dwarf_Signed dw_offset;
+        Dwarf_Block dw_block_content;
+        Dwarf_Addr dw_row_pc_out;
+        Dwarf_Bool dw_has_more_rows;
+        Dwarf_Addr dw_subsequent_pc;
+        Dwarf_Error error{};
+
+        if (dwarf_get_fde_info_for_cfa_reg3_c(fde.value()->getFde(), staticAddress.value(), &dw_value_type, &dw_offset_relevant, &dw_register, &dw_offset, &dw_block_content, &dw_row_pc_out, &dw_has_more_rows, &dw_subsequent_pc, &error) != DW_DLV_OK)
+            return std::nullopt;
+        switch (dw_value_type) {
+            case DW_EXPR_OFFSET:
+            case DW_EXPR_VAL_OFFSET:
+                cfa = regs[dw_register] + dw_offset;
+                break;
+            default:
+                return std::nullopt;
+        }
+    }
+
+    StackFrame frame = {
+        .pc = pc,
+        .cfa = cfa,
+        .fde = fde.value(),
+        .file = file.value(),
+        .registers = regs
+    };
+
+    return frame;
+}
+
+
+std::optional<StackFrame> Process::getCurrentFrame() {
+    struct user_regs_struct regs;
+    ptrace(PTRACE_GETREGS, _pid, NULL, &regs);
+
+    decltype(StackFrame::registers) regsArray;
+    regsArray[0] = regs.rax;
+    regsArray[1] = regs.rbx;
+    regsArray[2] = regs.rcx;
+    regsArray[3] = regs.rdx;
+    regsArray[4] = regs.rsi;
+    regsArray[5] = regs.rdi;
+    regsArray[6] = regs.rbp;
+    regsArray[7] = regs.rsp;
+    regsArray[8] = regs.r8;
+    regsArray[9] = regs.r9;
+    regsArray[10] = regs.r10;
+    regsArray[11] = regs.r11;
+    regsArray[12] = regs.r12;
+    regsArray[13] = regs.r13;
+    regsArray[14] = regs.r14;
+    regsArray[15] = regs.r15;
+    regsArray[16] = regs.rip;
+
+    auto frame = getFrame(regs.rip, regsArray);
+    return frame;
+}
+
+std::optional<StackFrame> Process::getCallingFrame(StackFrame frame) {
+    auto nextRegs = frame.registers;
+    Dwarf_Regtable3 regTable {};
+    Dwarf_Regtable_Entry3 entries[17] = {};
+    regTable.rt3_rules = entries;
+    regTable.rt3_reg_table_size = 17;
+
+    Dwarf_Addr row_pc = 0;
+    Dwarf_Error dw_error{};
+
+    auto staticAddress = getAddressMap().getStaticAddress(frame.pc);
+    if (!staticAddress.has_value()) {
+        return std::nullopt;
+    }
+
+    int status = dwarf_get_fde_info_for_all_regs3(frame.fde->getFde(), staticAddress.value(), &regTable, &row_pc, &dw_error);
+
+    for (int i = 0; i < regTable.rt3_reg_table_size; i++) {
+        auto rule = regTable.rt3_rules[i];
+        switch (regTable.rt3_rules[i].dw_value_type) {
+            case DW_EXPR_OFFSET:
+                nextRegs[i] = ptrace(PTRACE_PEEKDATA, _pid, frame.cfa + rule.dw_offset, NULL);
+                break;
+            case DW_EXPR_VAL_OFFSET:
+                nextRegs[i] = frame.cfa + rule.dw_offset;
+                break;
+            default:
+                nextRegs[i] = frame.registers[i];
+                 break;
+        }
+    }
+    nextRegs[7] = frame.cfa;
+    Address nextPc = nextRegs[16];
+    auto callingFrame = getFrame(nextPc - 1, nextRegs);
+    return callingFrame;
 }

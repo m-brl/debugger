@@ -12,13 +12,17 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(SOURCE_FILE
     src/main.cpp
     src/Breakpoint.cpp
-    src/Command.cpp
     src/utils.cpp
     src/Process.cpp
     src/ExecutableFile.cpp
     src/SourceFile.cpp
     src/Logger.cpp
     src/AddressMap.cpp
+
+    src/command/Command.cpp
+    src/command/CommandManager.cpp
+    src/command/CommandRegistry.cpp
+
     src/dwarf/Dwarf.cpp
     src/dwarf/DwarfFile.cpp
     src/elf/ElfFile.cpp
@@ -37,6 +41,7 @@ target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(${PROJECT_NAME} PRIVATE DEBUG_MODE)
+    target_compile_options(${PROJECT_NAME} PRIVATE -O0 -g3)
 elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
     target_compile_options(${PROJECT_NAME} PRIVATE -O2)
 endif()

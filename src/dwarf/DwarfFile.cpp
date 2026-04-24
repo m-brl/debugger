@@ -42,13 +42,10 @@ namespace dwarf {
             const char *error_msg = dwarf_errmsg(dw_error);
             throw std::runtime_error("Failed to retrieve CIEs and FDEs from FRAME: " + std::string(error_msg));
         }
-
-        for (int i = 0; i < cie_count; i++) {
-            _debugCies.push_back(std::shared_ptr<dwarf::Cie>(new dwarf::Cie(cies[i])));
-        }
-        _debugCiesRaw = cies;
         for (int i = 0; i < fde_count; i++) {
-            _debugFdes.push_back(std::shared_ptr<dwarf::Fde>(new dwarf::Fde(fdes[i])));
+            Dwarf_Cie cie{};
+            dwarf_get_cie_of_fde(fdes[i], &cie, &dw_error);
+            _debugFdes.push_back(std::shared_ptr<dwarf::Fde>(new dwarf::Fde(fdes[i], cie)));
         }
         _debugFdesRaw = fdes;
 
@@ -57,12 +54,10 @@ namespace dwarf {
             const char *error_msg = dwarf_errmsg(dw_error);
             throw std::runtime_error("Failed to retrieve CIEs and FDEs from EH_FRAME: " + std::string(error_msg));
         }
-        for (int i = 0; i < cie_count; i++) {
-            _debugHeCies.push_back(std::shared_ptr<dwarf::Cie>(new dwarf::Cie(cies[i])));
-        }
-        _debugHeCiesRaw = cies;
         for (int i = 0; i < fde_count; i++) {
-            _debugHeFdes.push_back(std::shared_ptr<dwarf::Fde>(new dwarf::Fde(fdes[i])));
+            Dwarf_Cie cie{};
+            dwarf_get_cie_of_fde(fdes[i], &cie, &dw_error);
+            _debugHeFdes.push_back(std::shared_ptr<dwarf::Fde>(new dwarf::Fde(fdes[i], cie)));
         }
         _debugHeFdesRaw = fdes;
     }

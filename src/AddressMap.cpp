@@ -82,39 +82,65 @@ AddressMap::AddressMap(std::filesystem::path exePath, pid_t pid) : _pid(pid), _e
     this->_loadMapsFile();
 }
 
-std::optional<Address> AddressMap::getRelativeAddress(Address addr) const {
-    for (const auto& [start, address]: this->_addresses) {
-        if (addr >= address.start && addr < address.end) {
-            return addr - address.start + address.offset;
+std::optional<Address> AddressMap::getStaticAddress(Address addr) const {
+    auto addressEntry = getAddress(addr);
+    if (!addressEntry.has_value()) return std::nullopt;
+
+    auto file = _loadedFiles.at(addressEntry.value().pathname);
+    auto offset = addr - addressEntry.value().start + addressEntry.value().offset;
+
+    for (auto& segment: file->getElfFile()->getSegmentsByType(PT_LOAD)) {
+        auto header = segment.getHeader();
+        if (header->p_offset <= offset && offset < header->p_offset + header->p_filesz) {
+            return offset + (header->p_vaddr - header->p_offset);
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::optional<Address> AddressMap::getRuntimeAddress(Address addr) const {
+    auto addressEntry = getAddress(addr);
+    if (!addressEntry.has_value()) return std::nullopt;
+
+    auto file = _loadedFiles.at(addressEntry.value().pathname);
+    auto offset = addr - addressEntry.value().start + addressEntry.value().offset;
+
+    for (auto& segment: file->getElfFile()->getSegmentsByType(PT_LOAD)) {
+        auto header = segment.getHeader();
+        if (header->p_vaddr <= offset && offset < header->p_vaddr + header->p_memsz) {
+            return offset - (header->p_vaddr + header->p_offset);
         }
     }
     return std::nullopt;
 }
 
-AddressMap::AddressEntry AddressMap::getAddress(Elf64_Addr addr) const {
+std::optional<AddressMap::AddressEntry> AddressMap::getAddress(Elf64_Addr addr) const {
     for (const auto& [start, address]: this->_addresses) {
         if (addr >= address.start && addr < address.end) {
             return address;
         }
     }
-    throw std::runtime_error("Address not found");
+    return std::nullopt;
 }
 
-AddressMap::AddressEntry AddressMap::getAddress(std::string pathname) const {
+std::optional<AddressMap::AddressEntry> AddressMap::getAddress(std::string pathname) const {
     for (const auto& [start, address]: this->_addresses) {
         if (address.pathname == pathname) {
             return address;
         }
     }
-    throw std::runtime_error("Address not found");
+    return std::nullopt;
 }
 
-std::shared_ptr<ExecutableFile> AddressMap::getFile(Elf64_Addr saddress) const {
-    AddressEntry address = this->getAddress(saddress);
-    if (_loadedFiles.contains(address.pathname)) {
-        return _loadedFiles.at(address.pathname);
+std::optional<std::shared_ptr<ExecutableFile>> AddressMap::getFile(Elf64_Addr saddress) const {
+    auto address = getAddress(saddress);
+    if (!address.has_value()) return std::nullopt;
+
+    if (_loadedFiles.contains(address.value().pathname)) {
+        return _loadedFiles.at(address.value().pathname);
     }
-    throw std::runtime_error("No loaded executable file found");
+    return std::nullopt;
 }
 
 std::vector<std::shared_ptr<ExecutableFile>> AddressMap::getLoadedFiles() const {

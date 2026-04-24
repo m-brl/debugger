@@ -30,6 +30,7 @@ namespace display {
     class CursesDisplay : public IDisplayInterface {
         private:
             std::shared_ptr<command::CommandManager> _commandManager;
+            std::shared_ptr<Process> _process;
 
             enum DisplayType {
                 FILE_VIEW,
@@ -51,7 +52,7 @@ namespace display {
             void _addLog(std::vector<std::string> log);
 
             std::vector<std::string> _longTextBuffer;
-            std::vector<std::string>::iterator _longTextBufferIt;
+            std::size_t _longTextBufferIndex;
 
             std::shared_ptr<command::ICommand> _pendingConfirmation;
             std::vector<std::string> _log;
@@ -70,5 +71,7 @@ namespace display {
             void init() override;
 
             void tick() override;
+
+            void setProcess(std::shared_ptr<Process> process) override;
     };
 }

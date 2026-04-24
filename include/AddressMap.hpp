@@ -37,11 +37,12 @@ public:
 
     void reload() { this->_loadMapsFile(); }
 
-    std::optional<Address> getRelativeAddress(Address addr) const;
-    AddressEntry getAddress(Elf64_Addr addr) const;
-    AddressEntry getAddress(std::string pathname) const;
+    std::optional<Address> getStaticAddress(Address addr) const;
+    std::optional<Address> getRuntimeAddress(Address addr) const;
+    std::optional<AddressEntry> getAddress(Elf64_Addr addr) const;
+    std::optional<AddressEntry> getAddress(std::string pathname) const;
 
-    std::shared_ptr<ExecutableFile> getFile(Elf64_Addr) const;
+    std::optional<std::shared_ptr<ExecutableFile>> getFile(Elf64_Addr) const;
     std::shared_ptr<ExecutableFile> getExeFile() const { return _exeFile; }
 
     std::vector<std::shared_ptr<ExecutableFile>> getLoadedFiles() const;

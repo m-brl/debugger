@@ -1,16 +1,5 @@
 #include "ContextManager.hpp"
 
-std::shared_ptr<ContextManager> ContextManager::_instance = nullptr;
-std::mutex ContextManager::_instanceMutex;
-
-ContextManager& ContextManager::getInstance() {
-    std::lock_guard<std::mutex> lock(_instanceMutex);
-    if (_instance == nullptr) {
-        _instance = std::shared_ptr<ContextManager>(new ContextManager());
-    }
-    return *_instance;
-}
-
 std::shared_ptr<Process> ContextManager::getCurrentProcess() const {
     return _currentProcess;
 }

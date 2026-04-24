@@ -1,5 +1,7 @@
 #pragma once
 
+#include "utils.hpp"
+
 #include <functional>
 #include <memory>
 #include <map>
@@ -35,8 +37,11 @@ const RegMap RegMapTable[] = {
     {12, R12, "r12"},
     {13, R13, "r13"},
     {14, R14, "r14"},
-    {15, 15, "r15"},
+    {15, R15, "r15"},
+    {16, RIP, "rip"},
 };
+
+#define REG_MAP_TABLE_SIZE (sizeof(RegMapTable) / sizeof(RegMap))
 
 namespace dwarf {
     class Line {
@@ -50,20 +55,22 @@ namespace dwarf {
             explicit Line(Dwarf_Line line) : _line(line) {}
             ~Line();
 
-            Dwarf_Line getLine() { return this->_line; }
-            Dwarf_Addr getAddress();
-            std::string getFileName();
-            Dwarf_Unsigned getLineNumber();
+            Dwarf_Line getLine();
+            std::optional<Address> getAddress();
+            std::optional<std::string> getFileName();
+            std::optional<std::size_t> getLineNumber();
     };
 
     class Die;
+
 
     class Cie {
         protected:
             Dwarf_Cie _cie;
 
         public:
-            explicit Cie(Dwarf_Cie cie) : _cie(cie) {}
+            explicit Cie(Dwarf_Cie cie) : _cie(cie) {
+            }
             ~Cie() = default;
 
             Dwarf_Cie getCie() const { return this->_cie; }
@@ -74,18 +81,24 @@ namespace dwarf {
             Dwarf_Fde _fde;
             Dwarf_Addr _lowPC;
             Dwarf_Addr _highPC;
+            std::optional<Dwarf_Addr> _returnAddress;
             Dwarf_Unsigned _funcLen;
 
+            std::shared_ptr<Cie> _cie;
+
         public:
-            explicit Fde(Dwarf_Fde fde) : _fde(fde) {
+            explicit Fde(Dwarf_Fde fde, Dwarf_Cie cie) : _fde(fde), _cie(std::make_shared<Cie>(cie)) {
                 dwarf_get_fde_range(this->_fde, &this->_lowPC, &this->_funcLen, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
                 _highPC = this->_lowPC + this->_funcLen;
+
             }
             ~Fde() = default;
 
+            std::shared_ptr<Cie> getCie() const { return this->_cie; }
             Dwarf_Fde getFde() const { return this->_fde; }
-            Dwarf_Addr getLowPC() const { return this->_lowPC; }
-            Dwarf_Addr getHighPC() const { return this->_highPC; }
+            Address getLowPC() const { return this->_lowPC; }
+            Address getHighPC() const { return this->_highPC; }
+            std::optional<Address> getReturnAddress();
             bool containsAddress(Dwarf_Addr address) const {
                 return address >= this->_lowPC && address < this->_highPC;
             }
@@ -95,8 +108,8 @@ namespace dwarf {
         protected:
             Dwarf_Die _die;
             std::optional<Dwarf_Half> _cachedTag;
+            std::optional<std::string_view> _cachedTagName;
             std::optional<Dwarf_Addr> _cachedLowPC;
-            std::optional<Dwarf_Addr> _cachedHighPC;
 
         public:
             explicit Die(Dwarf_Die die) : _die(die) {}
@@ -104,27 +117,40 @@ namespace dwarf {
 
             Dwarf_Die getDie() const { return this->_die; }
 
-            std::string getTagName();
-            Dwarf_Addr getLowPC();
+            std::optional<std::uint16_t> getTag();
+            std::optional<std::string_view> getTagName();
+            std::optional<Address> getLowPC();
     };
 
-    class DieRoot : public Die {
+    class DieVariable : public Die {
+        private:
+            std::optional<std::string_view> _cachedName;
+            std::optional<std::uint64_t> _cachedVariableTypeOffset;
+
         public:
-            explicit DieRoot() : Die(Dwarf_Die()) {}
-            ~DieRoot() = default;
+            explicit DieVariable(Dwarf_Die die) : Die(die) {}
+            ~DieVariable() = default;
+
+            std::optional<std::string_view> getName();
     };
 
     class DieSubprogram : public Die {
         private:
-            std::optional<std::string> _cachedSubprogramName;
+            std::optional<std::string> _cachedName;
             std::optional<Dwarf_Addr> _cachedHighPC;
 
         public:
             explicit DieSubprogram(Dwarf_Die die) : Die(die) {}
             ~DieSubprogram() = default;
 
-            std::string getSubprogramName();
-            Dwarf_Addr getHighPC();
+            std::optional<std::string_view> getName();
+            std::optional<Address> getHighPC();
+    };
+
+    class DieRoot : public Die {
+        public:
+            explicit DieRoot() : Die(Dwarf_Die()) {}
+            ~DieRoot() = default;
     };
 
 

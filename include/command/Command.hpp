@@ -23,109 +23,109 @@ namespace command {
 
     class RunCommand : public ICommand {
         private:
-            Process& _executionWorkflow;
+            std::shared_ptr<Process> _executionWorkflow;
 
         public:
-            RunCommand(Process& process) : _executionWorkflow(process) {}
+            RunCommand(std::shared_ptr<Process> process) : _executionWorkflow(process) {}
             ~RunCommand() override = default;
 
             void execute() override {
-                _executionWorkflow.continueExecution();
+                _executionWorkflow->continueExecution();
             }
     };
 
     class AddBreakpointCommand : public ICommand {
         private:
-            Process& _executionWorkflow;
+            std::shared_ptr<Process> _executionWorkflow;
             Breakpoint _breakpoint;
 
         public:
-            AddBreakpointCommand(Process& process, Breakpoint breakpoint) : _executionWorkflow(process), _breakpoint(breakpoint) {}
+            AddBreakpointCommand(std::shared_ptr<Process> process, Breakpoint breakpoint) : _executionWorkflow(process), _breakpoint(breakpoint) {}
             ~AddBreakpointCommand() override = default;
 
             void execute() override {
                 _breakpoint.setup();
-                _executionWorkflow.addBreakpoint(_breakpoint);
+                _executionWorkflow->addBreakpoint(_breakpoint);
             }
     };
 
     class RemoveBreakpointCommand : public ICommand {
         private:
-            Process& _executionWorkflow;
+            std::shared_ptr<Process> _executionWorkflow;
             Breakpoint _breakpoint;
 
         public:
-            RemoveBreakpointCommand(Process& process, Breakpoint breakpoint) : _executionWorkflow(process), _breakpoint(breakpoint) {}
+            RemoveBreakpointCommand(std::shared_ptr<Process> process, Breakpoint breakpoint) : _executionWorkflow(process), _breakpoint(breakpoint) {}
             ~RemoveBreakpointCommand() override = default;
 
             void execute() override {
-                _executionWorkflow.removeBreakpoint(_breakpoint);
+                _executionWorkflow->removeBreakpoint(_breakpoint);
             }
     };
 
     class ClearBreakpointsCommand : public ICommand {
         private:
-            Process& _executionWorkflow;
+            std::shared_ptr<Process> _executionWorkflow;
 
         public:
-            ClearBreakpointsCommand(Process& process) : _executionWorkflow(process) {}
+            ClearBreakpointsCommand(std::shared_ptr<Process> process) : _executionWorkflow(process) {}
             ~ClearBreakpointsCommand() override = default;
 
             void execute() override {
-                _executionWorkflow.clearBreakpoints();
+                _executionWorkflow->clearBreakpoints();
             }
     };
 
     class ContinueCommand : public ICommand {
         private:
-            Process& _executionWorkflow;
+            std::shared_ptr<Process> _executionWorkflow;
 
         public:
-            ContinueCommand(Process& process) : _executionWorkflow(process) {}
+            ContinueCommand(std::shared_ptr<Process> process) : _executionWorkflow(process) {}
             ~ContinueCommand() override = default;
 
             void execute() override {
-                _executionWorkflow.continueExecution();
+                _executionWorkflow->continueExecution();
             }
 
     };
 
     class PauseCommand : public ICommand {
         private:
-            Process& _executionWorkflow;
+            std::shared_ptr<Process> _executionWorkflow;
 
         public:
-            PauseCommand(Process& process) : _executionWorkflow(process) {}
+            PauseCommand(std::shared_ptr<Process> process) : _executionWorkflow(process) {}
             ~PauseCommand() override = default;
 
             void execute() override {
-                _executionWorkflow.pauseExecution();
+                _executionWorkflow->pauseExecution();
             }
     };
 
     class StepCommand : public ICommand {
         private:
-            Process& _executionWorkflow;
+            std::shared_ptr<Process> _executionWorkflow;
 
         public:
-            StepCommand(Process& process) : _executionWorkflow(process) {}
+            StepCommand(std::shared_ptr<Process> process) : _executionWorkflow(process) {}
             ~StepCommand() override = default;
 
             void execute() override {
-                _executionWorkflow.step();
+                _executionWorkflow->step();
             }
     };
 
     class NextCommand : public ICommand {
         private:
-            Process& _executionWorkflow;
+            std::shared_ptr<Process> _executionWorkflow;
 
         public:
-            NextCommand(Process& process) : _executionWorkflow(process) {}
+            NextCommand(std::shared_ptr<Process> process) : _executionWorkflow(process) {}
             ~NextCommand() override = default;
 
             void execute() override {
-                _executionWorkflow.next();
+                _executionWorkflow->next();
             }
     };
 }

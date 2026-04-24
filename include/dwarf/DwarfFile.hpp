@@ -6,6 +6,7 @@
 #include "utils/Tree.hpp"
 
 #include <filesystem>
+#include <format>
 
 #include <libdwarf.h>
 #include <dwarf.h>
@@ -21,12 +22,8 @@ namespace dwarf {
             std::vector<std::shared_ptr<Line>> _debugLines;
             std::map<std::string, std::shared_ptr<SourceFile>> _sourceFiles;
 
-            std::vector<std::shared_ptr<Cie>> _debugCies;
-            Dwarf_Cie *_debugCiesRaw;
             std::vector<std::shared_ptr<Fde>> _debugFdes;
             Dwarf_Fde *_debugFdesRaw;
-            std::vector<std::shared_ptr<Cie>> _debugHeCies;
-            Dwarf_Cie *_debugHeCiesRaw;
             std::vector<std::shared_ptr<Fde>> _debugHeFdes;
             Dwarf_Fde *_debugHeFdesRaw;
 
@@ -39,19 +36,17 @@ namespace dwarf {
             explicit DwarfFile(std::filesystem::path path);
             ~DwarfFile();
 
-            auto getDebugCies() const { return _debugCies; }
             auto getDebugFdes() const { return _debugFdes; }
-            auto getDebugHeCies() const { return _debugHeCies; }
             auto getDebugHeFdes() const { return _debugHeFdes; }
 
             std::optional<Address> getSymbolAddress(std::string name) {
                 auto symbol = searchTree<std::shared_ptr<Die>>(_debugTree.value(), [name](std::shared_ptr<Die> diePtr) {
-auto dieSubprogram = std::dynamic_pointer_cast<DieSubprogram>(diePtr);
+                        auto dieSubprogram = std::dynamic_pointer_cast<DieSubprogram>(diePtr);
                         if (dieSubprogram) {
-                            return dieSubprogram->getSubprogramName() == name;
+                        return dieSubprogram->getName() == name;
                         }
                         return false;
-                    });
+                        });
                 if (!symbol.has_value()) return std::nullopt;
                 return symbol.value()->getLowPC();
             }
@@ -70,16 +65,29 @@ auto dieSubprogram = std::dynamic_pointer_cast<DieSubprogram>(diePtr);
             return std::nullopt;
         }
 
-        std::optional<std::shared_ptr<Die>> getDieAtPc(Address pc) {
+        std::optional<std::shared_ptr<Die>> getSubprogram(Address pc) {
+            std::cerr << std::format("Searching for subprogram containing PC: 0x{:x}\n", pc);
             auto die = searchTree<std::shared_ptr<Die>>(_debugTree.value(), [pc](std::shared_ptr<Die> diePtr) {
                     auto dieSubprogram = std::dynamic_pointer_cast<DieSubprogram>(diePtr);
                         if (!dieSubprogram) return false;
                         auto lowPC = dieSubprogram->getLowPC();
                         auto highPC = dieSubprogram->getHighPC();
+                        std::cerr << std::format("Checking DIE {}: lowPC=0x{:x}, highPC=0x{:x}\n", dieSubprogram->getName().value_or("unknown"), lowPC.value_or(0), highPC.value_or(0));
                         return lowPC <= pc && pc < highPC;
                     });
             if (!die.has_value()) return std::nullopt;
             return die.value();
+        }
+
+        std::vector<std::shared_ptr<Die>> getDiesByTag(Dwarf_Half tag) {
+            std::vector<std::shared_ptr<Die>> dies;
+            searchTree<std::shared_ptr<Die>>(_debugTree.value(), [&](std::shared_ptr<Die> diePtr) {
+                if (diePtr->getTag() == tag) {
+                    dies.push_back(diePtr);
+                }
+                return false;
+            });
+            return dies;
         }
 
         std::optional<LineLocation> getLineLocation(Address address) {
@@ -92,8 +100,8 @@ auto dieSubprogram = std::dynamic_pointer_cast<DieSubprogram>(diePtr);
             }
             if (matchedLine) {
                 LineLocation lineLocation{};
-                lineLocation.lineNumber = matchedLine->getLineNumber();
-                std::string filename = matchedLine->getFileName();
+                lineLocation.lineNumber = matchedLine->getLineNumber().value();
+                std::string filename = matchedLine->getFileName().value();
                 if (_sourceFiles.contains(filename))
                     lineLocation.file = _sourceFiles[filename];
                 return lineLocation;

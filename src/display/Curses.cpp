@@ -1,5 +1,4 @@
 #include "display/Curses.hpp"
-#include "ContextManager.hpp"
 #include "utils.hpp"
 
 #include <sstream>
@@ -44,25 +43,28 @@ namespace display {
     }
 
     void CursesDisplay::_displayFileView() {
-        auto currentProcess = ContextManager::getInstance().getCurrentProcess();
-
         // Display file
         _displayBox(0, 0, COLS, 41, "File");
-        if (HAS_FLAG(currentProcess->getStatus(), IS_TRACE_RUNNING)) {
+        if (HAS_FLAG(_process->getStatus(), IS_TRACE_RUNNING)) {
             mvwprintw(_mainWindow, 1, 1, "Running");
             return;
         }
 
-        Address rip = ptrace(PTRACE_PEEKUSER, currentProcess->getPid(), 8 * RIP, NULL);
-        auto rrip = currentProcess->getAddressMap().getRelativeAddress(rip);
+        Address rip = ptrace(PTRACE_PEEKUSER, _process->getPid(), 8 * RIP, NULL);
+        auto rrip = _process->getAddressMap().getStaticAddress(rip);
 
         if (!rrip.has_value()) {
             mvwprintw(_mainWindow, 1, 1, "RIP: 0x%lx (unknown)", rip);
             return;
         }
 
-        auto file = currentProcess->getAddressMap().getFile(rip);
-        auto lineLocation = file->getDwarfFile()->getLineLocation(*rrip);
+        auto file = _process->getAddressMap().getFile(rip);
+        if (!file.has_value()) {
+            mvwprintw(_mainWindow, 1, 1, "RIP: 0x%lx (no file)", rip);
+            return;
+        }
+
+        auto lineLocation = file.value()->getDwarfFile()->getLineLocation(rrip.value());
         if (lineLocation.has_value()) {
             std::size_t first = std::max(1, static_cast<int>(lineLocation->lineNumber) - 20);
 
@@ -74,22 +76,20 @@ namespace display {
             }
             mvprintw(1 + lineLocation->lineNumber - first, 1, ">");
         } else {
-            mvprintw(1, 1, "Nothing to be displayed");
+            mvprintw(1, 1, "Nothing to be displayed 0x%lx 0x%lx", rip, rrip.value());
         }
     }
 
     void CursesDisplay::_display() {
-        auto currentProcess = ContextManager::getInstance().getCurrentProcess();
-
         _displayFileView();
 
         // Display stdout
-        auto stdoutBuf = currentProcess->getStdoutBuffer();
+        auto stdoutBuf = _process->getStdoutBuffer();
         std::vector<std::string> croppedStdoutBuf(stdoutBuf.rbegin(), stdoutBuf.rbegin() + std::min(static_cast<std::size_t>(5), stdoutBuf.size()));
         _displayBox(0, LINES - 19, COLS / 2, 7, "Stdout", croppedStdoutBuf);
 
         // Display stderr
-        auto stderrBuf = currentProcess->getStderrBuffer();
+        auto stderrBuf = _process->getStderrBuffer();
         std::vector<std::string> croppedStderrBuf(stderrBuf.rbegin(), stderrBuf.rbegin() + std::min(static_cast<std::size_t>(5), stderrBuf.size()));
         _displayBox(COLS / 2, LINES - 19, COLS / 2, 7, "Stderr", croppedStderrBuf);
 
@@ -103,7 +103,7 @@ namespace display {
                 }
                 mvwprintw(_mainWindow, LINES - 3 - i, 1, "%s", it->c_str());
             }
-            if (_longTextBufferIt != _longTextBuffer.end()) {
+            if (_longTextBufferIndex != _longTextBuffer.size()) {
                 mvprintw(LINES - 2, 1, "More...");
             } else if (_pendingConfirmation) {
                 mvprintw(LINES - 2, 1, "Are you sure do you want to %s (y/n)", _pendingConfirmation->getDescription().c_str());
@@ -121,13 +121,13 @@ namespace display {
     }
 
     void CursesDisplay::_addLog(std::vector<std::string> log) {
-        bool resetIt = _longTextBufferIt == _longTextBuffer.end();
+        bool resetIt = _longTextBufferIndex == _longTextBuffer.size();
         if (log.size() > 3) {
             for (auto tmp: log) {
                 _longTextBuffer.push_back(tmp);
             }
             if (resetIt) {
-                _longTextBufferIt = _longTextBuffer.begin();
+                _longTextBufferIndex = 0;
             }
         } else {
             for (auto tmp: log) {
@@ -146,8 +146,6 @@ namespace display {
         while (iss >> arg) {
             args.push_back(arg);
         }
-
-        auto process = ContextManager::getInstance().getCurrentProcess();
 
         if (command == "display") {
             if (args.size() < 1) {
@@ -173,89 +171,125 @@ namespace display {
             return;
         }
         if (command == "continue") {
-            auto continueCommand = std::make_shared<command::ContinueCommand>(*ContextManager::getInstance().getCurrentProcess());
+            auto continueCommand = std::make_shared<command::ContinueCommand>(_process);
             _commandManager->addCommand(continueCommand);
             _log.push_back("Continuing...");
             return;
         }
         if (command == "step") {
-            auto stepCommand = std::make_shared<command::StepCommand>(*ContextManager::getInstance().getCurrentProcess());
+            auto stepCommand = std::make_shared<command::StepCommand>(_process);
             _commandManager->addCommand(stepCommand);
             return;
         }
         if (command == "next") {
-            auto nextCommand = std::make_shared<command::NextCommand>(*ContextManager::getInstance().getCurrentProcess());
+            auto nextCommand = std::make_shared<command::NextCommand>(_process);
             _commandManager->addCommand(nextCommand);
             return;
         }
         if (command == "pid") {
-            pid_t pid = ContextManager::getInstance().getCurrentProcess()->getPid();
+            pid_t pid = _process->getPid();
             _log.push_back("PID: " + std::to_string(pid));
             return;
         }
         if (command == "threads") {
             int i = 0;
-            for (auto& process : ContextManager::getInstance().getProcesses()) {
+            /*for (auto& process : ContextManager::getInstance().getProcesses()) {
                 _log.push_back(std::format("Thread {}: {}", i, process->getPid()));
                 i++;
-            }
+            }*/
         }
         if (command == "symbols") {
-            auto file = process->getAddressMap().getExeFile();
+            auto file = _process->getAddressMap().getExeFile();
             _addLog(text(file->getElfFile()->getSymbols(), [&](auto symbol) {
-                return std::format("0x{:x} {}", symbol.getSym()->st_value, symbol.getName().value_or(""));
-            }));
+                        return std::format("0x{:x} {} ({})", symbol.getSym()->st_value, symbol.getName().value_or(""), file->getPath().string());
+                        }));
         }
+        if (command == "dies") {
+            auto file = _process->getAddressMap().getExeFile();
+            _addLog(text(file->getDwarfFile()->getDiesByTag(DW_TAG_subprogram), [&](std::shared_ptr<dwarf::Die> die) {
+                        auto dieSubprogram = std::dynamic_pointer_cast<dwarf::DieSubprogram>(die);
+                        return std::format("{} at 0x{:x}", dieSubprogram->getName().value_or("unknown"), die->getLowPC().value_or(0));
+                        }));
+        }
+
+        if (command == "fde") {
+            Address rip = ptrace(PTRACE_PEEKUSER, _process->getPid(), 8 * RIP, NULL);
+            auto rrip = _process->getAddressMap().getStaticAddress(rip);
+            if (!rrip.has_value()) {
+                _log.push_back("Failed to retrieve fde");
+                return;
+            }
+            auto fde = _process->getAddressMap().getExeFile()->getDwarfFile()->getFdeAtPc(rrip.value());
+            if (!fde.has_value()) {
+                _log.push_back("Failed to retrieve fde");
+                return;
+            }
+            _log.push_back(std::format("FDE for RIP 0x{:x}: 0x{:x}-0x{:x}", rip, fde.value()->getLowPC(), fde.value()->getHighPC()));
+        }
+
         if (command == "fdes") {
-            _addLog(text(process->getAddressMap().getExeFile()->getDwarfFile()->getDebugFdes(), [](const std::shared_ptr<dwarf::Fde>& fde) {
+            _addLog(text(_process->getAddressMap().getExeFile()->getDwarfFile()->getDebugFdes(), [](const std::shared_ptr<dwarf::Fde>& fde) {
                 return std::format("0x{:x}-0x{:x}", fde->getLowPC(), fde->getHighPC());
             }));
-            _addLog(text(process->getAddressMap().getExeFile()->getDwarfFile()->getDebugHeFdes(), [](const std::shared_ptr<dwarf::Fde>& fde) {
+            _addLog(text(_process->getAddressMap().getExeFile()->getDwarfFile()->getDebugHeFdes(), [](const std::shared_ptr<dwarf::Fde>& fde) {
                 return std::format("0x{:x}-0x{:x}", fde->getLowPC(), fde->getHighPC());
             }));
         }
         if (command == "frame") {
-            auto stacktrace = ContextManager::getInstance().getCurrentProcess()->getStacktrace();
+            auto stacktrace = _process->getStacktrace();
 
-            for (auto fde: stacktrace) {
-                auto file = process->getAddressMap().getFile(fde->getLowPC());
-                auto die = file->getDwarfFile()->getDieAtPc(fde->getLowPC());
-                if (!die.has_value()) {
+            for (auto stackframe: stacktrace) {
+                auto staticAddress = 0;
+                auto fde = stackframe.fde;
+                auto file = stackframe.file;
+                /*if (!file.has_value()) {
                     _log.push_back(std::format("0x{:x}-0x{:x} (unknown)", fde->getLowPC(), fde->getHighPC()));
                     continue;
+                }*/
+
+                auto die = file->getDwarfFile()->getSubprogram(fde->getLowPC());
+                if (!die.has_value()) {
+                    _log.push_back(std::format("0x{:x}-0x{:x} at 0x{:x} (unknown)", fde->getLowPC(), fde->getHighPC(), staticAddress));
+                    continue;
                 }
-                _log.push_back(std::format("0x{:x}-0x{:x} ({})", fde->getLowPC(), fde->getHighPC(), die.value()->getTagName()));
+                if (auto subprogramdie = std::dynamic_pointer_cast<dwarf::DieSubprogram>(die.value())) {
+                    _log.push_back(std::format("0x{:x}-0x{:x} at 0x{:x} ({})", fde->getLowPC(), fde->getHighPC(), staticAddress, subprogramdie->getName().value_or("unknown")));
+                    continue;
+                }
+                _log.push_back(std::format("0x{:x}-0x{:x} ({})", fde->getLowPC(), fde->getHighPC(), die.value()->getTagName().value()));
             }
 
             return;
         }
 
         if (command == "fd") {
-            auto fds = process->getFDs();
+            auto fds = _process->getFDs();
             _log.push_back("File Descriptors:");
             for (auto fd : fds) {
-                auto fdInfo = process->getFDInfo(fd);
+                auto fdInfo = _process->getFDInfo(fd);
                 _log.push_back(std::format("FD {}: {}", fd, fdInfo.path));
             }
             return;
         }
 
         if (command == "reload") {
-            process->getAddressMap().reload();
+            _process->getAddressMap().reload();
             _log.push_back("Address map reloaded");
         }
 
         if (command == "rip") {
-            auto pid = process->getPid();
+            auto pid = _process->getPid();
             unsigned long rip = ptrace(PTRACE_PEEKUSER, pid, 8 * RIP, NULL);
 
-            try {
-                std::string path = ContextManager::getInstance().getCurrentProcess()->getAddressMap().getAddress(rip).pathname;
+            auto addressEntry = _process->getAddressMap().getAddress(rip);
+            if (addressEntry.has_value()) {
+                std::string path = addressEntry.value().pathname;
                 _log.push_back(std::format("RIP: 0x{:x} ({})", rip, path));
-            } catch (const std::exception& e) {
+            } else {
                 _log.push_back(std::format("RIP: 0x{:x} (unknown)", rip));
             }
-            auto rrip = process->getAddressMap().getRelativeAddress(rip);
+
+            auto rrip = _process->getAddressMap().getStaticAddress(rip);
             if (!rrip.has_value()) {
                 return;
             }
@@ -263,10 +297,11 @@ namespace display {
             std::shared_ptr<dwarf::Line> matchedLine = nullptr;
 
             try {
-                auto file = process->getAddressMap().getFile(rip);
+                auto file = _process->getAddressMap().getFile(rip);
+                if (!file.has_value()) return;
                 unsigned long fileOffset = 0;
 
-                for (auto ph: file->getElfFile()->getSegmentsByType(PT_LOAD)) {
+                for (auto ph: file.value()->getElfFile()->getSegmentsByType(PT_LOAD)) {
                     if (ph.getHeader()->p_vaddr <= rrip.value() && rrip.value() < ph.getHeader()->p_vaddr + ph.getHeader()->p_memsz) {
                         fileOffset = rrip.value() - ph.getHeader()->p_vaddr + ph.getHeader()->p_offset;
                         break;
@@ -274,16 +309,16 @@ namespace display {
                 }
                 _log.push_back(std::format("Relative address: 0x{:x}", rrip.value()));
                 _log.push_back(std::format("File offset: 0x{:x}", fileOffset));
-                auto address = process->getAddressMap().getAddress(rip);
-                for (auto& line : file->getDwarfFile()->getDebugLines()) {
+                auto address = _process->getAddressMap().getAddress(rip);
+                for (auto& line : file.value()->getDwarfFile()->getDebugLines()) {
                     if (line->getAddress() > rip) {
                         break;
                     }
                     matchedLine = line;
                 }
                 if (matchedLine) {
-                    std::string filename = matchedLine->getFileName();
-                    Dwarf_Unsigned lineNumber = matchedLine->getLineNumber();
+                    std::string filename = matchedLine->getFileName().value_or("unknown");
+                    Dwarf_Unsigned lineNumber = matchedLine->getLineNumber().value_or(0);
                     _log.push_back("Source: " + filename + ":" + std::to_string(lineNumber));
                 }
             } catch (const std::exception& e) {
@@ -294,12 +329,13 @@ namespace display {
         }
 
         if (command == "clear") {
-            ContextManager::getInstance().getCurrentProcess()->clearStdoutBuffer();
-            ContextManager::getInstance().getCurrentProcess()->clearStderrBuffer();
+            _process->clearStdoutBuffer();
+            _process->clearStderrBuffer();
+            _log.clear();
         }
 
         if (command == "status") {
-            auto status = process->getStatus();
+            auto status = _process->getStatus();
             _log.push_back(std::format("Process status: {}{}",
                 HAS_FLAG(status, IS_TRACE_STARTED) ? "Started " : "",
                 HAS_FLAG(status, IS_TRACE_RUNNING) ? "Running " : ""
@@ -307,10 +343,26 @@ namespace display {
         }
 
         if (command == "maps") {
-            _addLog(text(process->getAddressMap().getAddresses(), [](const AddressMap::AddressEntry& address) {
+            _addLog(text(_process->getAddressMap().getAddresses(), [](const AddressMap::AddressEntry& address) {
                 return std::format("0x{:x}-0x{:x} {}", address.start, address.end, address.pathname);
             }));
         }
+
+        /*if (command == "stepout") {
+            auto currentFrame = _process->getCurrentFrame();
+            if (!currentFrame.has_value()) {
+                _log.push_back("No current frame");
+                return;
+            }
+            auto callingFrame = _process->getCallingFrame(currentFrame.value());
+            if (!callingFrame.has_value()) {
+                _log.push_back("No calling frame");
+                return;
+            }
+            auto command = std::shared_ptr<command::ICommand>(new command::AddBreakpointCommand(_process, {_process->getPid(), callingFrame.value().address}));
+            _commandManager->addCommand(command);
+            _log.push_back(std::format("Step out to 0x{:x} from 0x{:x}", callingFrame.value().staticAddress, currentFrame.value().staticAddress));
+        }*/
 
         if (command == "break") {
             if (args.size() < 1) {
@@ -322,12 +374,14 @@ namespace display {
             if (args[0].substr(0, 2) == "0x") {
                 address = std::stoul(args[0], nullptr, 16);
             } else {
-                auto file = process->getAddressMap().getExeFile();
+                auto file = _process->getAddressMap().getExeFile();
                 if (!file) {
                     _log.push_back("No executable file loaded");
                     return;
                 }
-                AddressMap::AddressEntry addrLine = process->getAddressMap().getAddress(file->getPath().string());
+                auto addrLine = _process->getAddressMap().getAddress(file->getPath().string());
+                if (!addrLine.has_value()) return;
+
                 auto symbol = file->getElfFile()->getSymbolByName(args[0]);
                 if (!symbol.has_value()) {
                     _log.push_back("Symbol not found: " + args[0]);
@@ -350,10 +404,10 @@ namespace display {
                         break;
                     }
                 }
-                address = fileOffset + addrLine.start;
+                address = fileOffset + addrLine.value().start;
 
             }
-            auto command = std::shared_ptr<command::ICommand>(new command::AddBreakpointCommand(*process, {process->getPid(), address}));
+            auto command = std::shared_ptr<command::ICommand>(new command::AddBreakpointCommand(_process, {_process->getPid(), address}));
             _commandManager->addCommand(command);
             _log.push_back(std::format("Breakpoint added at 0x{:x}", address));
         }
@@ -374,21 +428,17 @@ namespace display {
             return;
         }
 
-        if (_longTextBufferIt != _longTextBuffer.end()) {
+        if (_longTextBufferIndex != _longTextBuffer.size()) {
             if (ch == 10 || ch == 'n') {
-                _log.push_back(*_longTextBufferIt);
-                _longTextBufferIt++;
+                _log.push_back(_longTextBuffer[_longTextBufferIndex]);
+                _longTextBufferIndex++;
                 return;
             }
         }
 
         if (ch == 10) {
             _log.push_back("> " + _input);
-            try {
-                _handleCommand();
-            } catch (const std::exception& e) {
-                _log.push_back(std::string("Error: ") + e.what());
-            }
+            _handleCommand();
             _inputHistory.push_back(_input);
             _inputHistoryIt = _inputHistory.end();
             _input.clear();
@@ -446,16 +496,16 @@ namespace display {
     void CursesDisplay::tick() {
         static auto last = std::chrono::steady_clock::now();
         auto now = std::chrono::steady_clock::now();
-        if (now - last < std::chrono::milliseconds(10)) {
+        if (now - last < std::chrono::milliseconds(100)) {
             return;
         }
         last = now;
 
         _readStdin();
 
-        if (_longTextBufferIt == _longTextBuffer.end()) {
+        if (_longTextBufferIndex == _longTextBuffer.size()) {
             _longTextBuffer.clear();
-            _longTextBufferIt = _longTextBuffer.end();
+            _longTextBufferIndex = 0;
         }
         if (!_pendingConfirmation) {
             _pendingConfirmation = _commandManager->getNextConfirmation();
@@ -464,5 +514,9 @@ namespace display {
         _clear();
         _display();
         _refresh();
+    }
+
+    void CursesDisplay::setProcess(std::shared_ptr<Process> process) {
+        _process = process;
     }
 }

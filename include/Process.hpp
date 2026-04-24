@@ -13,6 +13,14 @@
 #define IS_TRACE_STARTED    BIT1
 #define IS_TRACE_RUNNING    BIT2
 
+struct StackFrame {
+    Address pc;
+    Address cfa;
+    std::shared_ptr<dwarf::Fde> fde;
+    std::shared_ptr<ExecutableFile> file;
+    std::map<std::int16_t, std::uintptr_t> registers;
+};
+
 struct FDInfo {
     int fd;
     std::string path;
@@ -90,6 +98,8 @@ class Process {
 
         void injectModule();
 
-        // dwarf
-        std::vector<std::shared_ptr<dwarf::Fde>> getStacktrace();
+        std::vector<StackFrame> getStacktrace();
+        std::optional<StackFrame> getFrame(Address pc, decltype(StackFrame::registers) regs);
+        std::optional<StackFrame> getCurrentFrame();
+        std::optional<StackFrame> getCallingFrame(StackFrame frame);
 };
