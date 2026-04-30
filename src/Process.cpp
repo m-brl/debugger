@@ -1,6 +1,5 @@
 #include "Process.hpp"
 #include "ContextManager.hpp"
-#include "Logger.hpp"
 #include "command/Command.hpp"
 
 #include <cstring>
@@ -13,6 +12,7 @@
 #include <sys/reg.h>
 #include <dwarf.h>
 #include <libdwarf.h>
+#include <fcntl.h>
 
 void Process::_getProcessStatus(pid_t pid) {
 int status = 0;

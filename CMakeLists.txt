@@ -16,7 +16,6 @@ set(SOURCE_FILE
     src/Process.cpp
     src/ExecutableFile.cpp
     src/SourceFile.cpp
-    src/Logger.cpp
     src/AddressMap.cpp
 
     src/command/Command.cpp

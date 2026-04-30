@@ -1,5 +1,4 @@
 #include "dwarf/Dwarf.hpp"
-#include "Logger.hpp"
 #include <iostream>
 #include <stdexcept>
 
